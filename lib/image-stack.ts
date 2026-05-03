@@ -100,7 +100,7 @@ export class ImageStack extends cdk.Stack {
     codeBuildRole.addToPolicy(new iam.PolicyStatement({
       sid: 'AgentCoreRuntime',
       effect: iam.Effect.ALLOW,
-      actions: ['bedrock-agentcore:CreateAgentRuntime', 'bedrock-agentcore:CreateAgentRuntimeEndpoint', 'bedrock-agentcore:GetAgentRuntime', 'bedrock-agentcore:DeleteAgentRuntime'],
+      actions: ['bedrock-agentcore:*'],
       resources: [
         `arn:aws:bedrock-agentcore:${this.region}:${this.account}:runtime/*`,
         `arn:aws:bedrock-agentcore:${this.region}:${this.account}:*`,
