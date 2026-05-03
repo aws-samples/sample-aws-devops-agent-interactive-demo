@@ -12,7 +12,7 @@ These scripts build and deploy the PCAP Analyzer MCP Server as an AgentCore Runt
 │                                                         │
 │  1. Clone upstream sample-pcap-analyzer-mcp from GitHub │
 │  2. Build Docker image with:                            │
-│     - Upstream package installed as library              │
+│     - Upstream package installed as library             │
 │     - Our server-wrapper.py as the entry point          │
 │     - tshark + tcpdump for packet analysis              │
 │     - FastMCP + boto3 for transport + S3 access         │
