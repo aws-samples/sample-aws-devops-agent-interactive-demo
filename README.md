@@ -144,6 +144,29 @@ Networking/network-devops-agent-deploy/
 └── test/                   # CDK stack tests
 ```
 
+## Cost Estimate
+
+This demo deploys real AWS resources that incur charges. Estimated costs for **us-east-1** (prices may vary by region):
+
+| Resource | Spec | Estimated Cost (per hour) |
+|----------|------|--------------------------|
+| NAT Gateway | 1x | $0.045 |
+| VPC Interface Endpoints | 8x (2 ENIs each) | $0.16 |
+| EC2 Instance | t3.medium | $0.0416 |
+| RDS MySQL | db.t3.micro, 20 GB | $0.017 |
+| ALB | 1x | $0.0225 |
+| CloudFront | Distribution | ~$0.00 (minimal traffic) |
+| Lambda | 12 functions | ~$0.00 (invocation-based) |
+| DynamoDB | On-demand | ~$0.00 (minimal reads/writes) |
+| S3 | 3 buckets | ~$0.00 (minimal storage) |
+| Secrets Manager | 2 secrets | ~$0.00 |
+| CodeBuild | 1 build at deploy | ~$0.01 (one-time) |
+| **Total** | | **~$0.29/hour (~$6.90/day)** |
+
+The VPC Interface Endpoints (8 endpoints x 2 AZs = 16 ENIs at $0.01/hr each) are the largest cost driver. The demo is designed for short-lived use. **Run `bash scripts/destroy.sh` when done to avoid ongoing charges.**
+
+> **Tip:** For a quick demo session (1-2 hours), the total cost is under $1. Leaving it running overnight costs ~$7.
+
 ## Security
 
 - All API Gateway endpoints are protected by Cognito authentication
