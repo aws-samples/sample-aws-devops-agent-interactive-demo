@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AWS DevOps Agent Interactive Demo</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <!-- Login Overlay -->
+  <div id="loginOverlay" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.7);z-index:9999;align-items:center;justify-content:center;">
+    <div style="background:var(--color-background-container);border:1px solid var(--color-border-container);border-radius:12px;padding:32px;max-width:380px;width:90%;text-align:center;">
+      <img src="DevOpsAgent.svg" alt="AWS DevOps Agent" width="56" height="56" style="margin-bottom:12px;">
+      <h2 style="margin:0 0 4px;font-size:18px;color:var(--color-text-heading);">AWS DevOps Agent Interactive Demo</h2>
+      <p style="margin:0 0 20px;font-size:13px;color:var(--color-text-secondary);">Sign in to access the dashboard</p>
+      <input type="text" id="loginUsername" placeholder="Username" style="width:100%;padding:10px 12px;margin-bottom:10px;border:1px solid var(--color-border-input);border-radius:6px;background:var(--color-background-input);color:var(--color-text-body);font-size:14px;box-sizing:border-box;">
+      <input type="password" id="loginPassword" placeholder="Password" onkeydown="if(event.key==='Enter')handleLogin()" style="width:100%;padding:10px 12px;margin-bottom:10px;border:1px solid var(--color-border-input);border-radius:6px;background:var(--color-background-input);color:var(--color-text-body);font-size:14px;box-sizing:border-box;">
+      <div id="loginError" style="color:#d91515;font-size:12px;min-height:18px;margin-bottom:8px;"></div>
+      <button id="loginBtn" onclick="handleLogin()" style="width:100%;padding:10px;background:var(--color-background-button-primary);color:#fff;border:none;border-radius:6px;font-size:14px;cursor:pointer;font-weight:500;">Sign in</button>
+      <p style="margin:12px 0 0;font-size:11px;color:var(--color-text-secondary);">Credentials in Secrets Manager: <code>net-devops-dashboard-admin</code></p>
+    </div>
+  </div>
+
+  <div class="app-layout">
+    <header class="app-header">
+      <div>
+        <div class="app-header-title">AWS DevOps Agent Interactive Demo</div>
+        <div class="app-header-description">Automated incident investigation and resolution with break/fix scenarios</div>
+      </div>
+      <div class="header-actions">
+        <div class="status-badge status-badge-success" id="connectionStatus"><span class="status-dot status-dot-success"></span>Connected</div>
+        <button class="theme-toggle" onclick="toggleTheme()"><span class="theme-icon" id="themeIcon">☀️</span><span id="themeLabel">Light</span></button>
+      </div>
+    </header>
+    <div class="tab-nav">
+      <button class="tab-btn active" onclick="switchTab('welcome')" id="tabBtnWelcome">Welcome</button>
+      <button class="tab-btn" onclick="switchTab('config')" id="tabBtnConfig">Configuration</button>
+      <button class="tab-btn" onclick="switchTab('scenarios')" id="tabBtnScenarios">Networking Scenarios</button>
+    </div>
+    <div class="tab-content active" id="tabWelcome">
+      <div class="welcome-container">
+        <div class="welcome-logo"><img src="DevOpsAgent.svg" alt="AWS DevOps Agent" width="80" height="80"></div>
+        <h1 class="welcome-title">AWS DevOps Agent</h1>
+        <h2 class="welcome-subtitle">Network Troubleshooting Demo</h2>
+        <p class="welcome-description">This demo showcases how AWS DevOps Agent automatically investigates network incidents using CloudTrail, VPC Flow Logs, ELB Access Logs, and PCAP analysis via a custom MCP server on AgentCore Runtime.</p>
+        <div class="welcome-cards">
+          <div class="welcome-card"><div class="welcome-card-icon">🔧</div><h3>6 Break/Fix Scenarios</h3><p>Security groups, route tables, VPC endpoints, ALB backends, and TLS certificate mismatches — each triggers a real network failure.</p></div>
+          <div class="welcome-card"><div class="welcome-card-icon">🔍</div><h3>Automated Investigation</h3><p>CloudWatch alarms trigger webhooks to DevOps Agent, which automatically investigates using AWS APIs, logs, and MCP tools.</p></div>
+          <div class="welcome-card"><div class="welcome-card-icon">📡</div><h3>PCAP Analysis via MCP</h3><p>Scenario 6 captures network packets and analyzes TLS handshakes, SNI mismatches, and certificate details using a custom PCAP MCP server.</p></div>
+        </div>
+        <div class="welcome-steps"><h3>Getting Started</h3><ol><li>Go to the <strong>Configuration</strong> tab to register the MCP server and configure the webhook</li><li>Go to the <strong>Networking Scenarios</strong> tab to trigger break/fix scenarios</li><li>Watch the investigation event stream as DevOps Agent diagnoses the issue</li></ol></div>
+        <div class="welcome-table-section"><h3>Documentation</h3><div style="display:grid;grid-template-columns:1fr 1fr;gap:var(--space-s) var(--space-xl);font-size:13px;"><a href="https://docs.aws.amazon.com/devopsagent/latest/userguide/what-is.html" target="_blank" style="color:var(--color-text-interactive);text-decoration:none;">What is AWS DevOps Agent</a><a href="https://docs.aws.amazon.com/devopsagent/latest/userguide/getting-started-with-aws-devops-agent.html" target="_blank" style="color:var(--color-text-interactive);text-decoration:none;">Getting Started Guide</a><a href="https://docs.aws.amazon.com/devopsagent/latest/userguide/working-with-devops-agent.html" target="_blank" style="color:var(--color-text-interactive);text-decoration:none;">Working with DevOps Agent</a><a href="https://docs.aws.amazon.com/devopsagent/latest/userguide/configuring-capabilities-for-aws-devops-agent.html" target="_blank" style="color:var(--color-text-interactive);text-decoration:none;">Configuring Capabilities</a><a href="https://docs.aws.amazon.com/devopsagent/latest/userguide/about-aws-devops-agent.html" target="_blank" style="color:var(--color-text-interactive);text-decoration:none;">About DevOps Agent</a><a href="https://docs.aws.amazon.com/devopsagent/latest/APIReference/Welcome.html" target="_blank" style="color:var(--color-text-interactive);text-decoration:none;">API Reference</a></div></div>
+        <div class="welcome-table-section"><h3>Data Sources by Scenario</h3><table class="welcome-table"><thead><tr><th>Scenario</th><th>Break</th><th>Primary Evidence</th></tr></thead><tbody><tr><td>1. Security Group Rule</td><td>Revoke RDS inbound rule</td><td>CloudTrail + VPC Flow Logs</td></tr><tr><td>2. NAT Gateway Route</td><td>Delete default route</td><td>CloudTrail + VPC Flow Logs</td></tr><tr><td>3. VPC Endpoint Policy</td><td>Deny S3 endpoint policy</td><td>CloudTrail</td></tr><tr><td>4. Bedrock Endpoint</td><td>Remove endpoint subnets</td><td>CloudTrail</td></tr><tr><td>5. ALB Backend Failure</td><td>Stop backend application</td><td>ELB Access Logs</td></tr><tr><td>6. TLS/SNI Mismatch</td><td>DNS poisoning of CloudWatch endpoint</td><td>PCAP MCP Server</td></tr></tbody></table></div>
+      </div>
+    </div>
+    <div class="tab-content" id="tabConfig">
+      <!-- Box 1: MCP Server Configuration -->
+      <div class="container mcp-config"><div class="container-header"><h2>MCP server configuration</h2></div><div class="container-body"><div id="agentSpaceLink" style="margin-bottom:16px;font-size:12px;"></div><div class="config-section" style="margin-top:0;padding-top:0;border-top:none;"><div class="config-section-title">PCAP MCP Server (AgentCore Runtime)</div><p class="config-section-note" style="margin-top:4px;font-size:11px;color:var(--color-text-muted);">Used by: Networking Scenarios</p><div class="endpoint-row"><span class="endpoint-label">MCP Name</span><code class="endpoint-url">PCAPmcp</code><button class="btn-copy" onclick="copyText('PCAPmcp')">Copy</button></div><hr class="config-divider"><div class="endpoint-row"><span class="endpoint-label">Endpoint URL</span><code class="endpoint-url" id="mcpEndpointUrl">Loading...</code><button class="btn-copy" onclick="copyValue('mcpEndpointUrl')">Copy</button></div><hr class="config-divider"><div class="endpoint-row"><span class="endpoint-label">Authorization Flow</span><code class="endpoint-url" style="color:var(--color-text-interactive);">OAuth Client Credentials</code></div><hr class="config-divider"><div class="endpoint-row"><span class="endpoint-label">OAuth Client ID</span><code class="endpoint-url" id="mcpClientId">Loading...</code><button class="btn-copy" onclick="copyValue('mcpClientId')">Copy</button></div><hr class="config-divider"><div class="endpoint-row"><span class="endpoint-label">Client Secret</span><code class="endpoint-url" id="mcpClientSecret">Loading...</code><button class="btn-copy" onclick="copyValue('mcpClientSecret')">Copy</button></div><hr class="config-divider"><div class="endpoint-row"><span class="endpoint-label">Exchange URL</span><code class="endpoint-url" id="mcpTokenEndpoint">Loading...</code><button class="btn-copy" onclick="copyValue('mcpTokenEndpoint')">Copy</button></div></div></div></div>
+
+      <!-- Box 2: Webhook Configuration -->
+      <div class="container"><div class="container-header"><h2>Webhook configuration</h2></div><div class="container-body"><p class="config-section-note">When a CloudWatch alarm fires, the webhook Lambda sends an HMAC-signed notification to DevOps Agent, which automatically starts an investigation. The diagram below shows the integration flow.</p><div style="text-align:center;margin:var(--space-l) 0;"><img src="webhook-integration-architecture.png" alt="Webhook Integration Architecture" style="max-width:100%;height:auto;border-radius:var(--border-radius);border:1px solid var(--color-border-divider);"></div><p class="config-section-note" id="webhookInstructions">Go to the <a href="#" id="webhookAgentSpaceLink" target="_blank" style="color:var(--color-text-interactive);">Agent Space console</a>, navigate to <strong>Capabilities → Webhooks → Add webhook</strong>, and follow the instructions to generate a webhook URL and HMAC secret. Paste them below.</p><div id="webhookStatus" style="font-size:12px;color:var(--color-text-secondary);margin-bottom:8px;"></div><div class="webhook-form"><input type="text" id="webhookUrlInput" class="form-input" placeholder="Webhook URL from DevOps Agent console"><input type="text" id="hmacSecretInput" class="form-input" placeholder="HMAC Secret from DevOps Agent console"><button class="btn btn-primary" id="webhookConfigBtn" onclick="configureWebhook()" style="align-self:flex-start;">Save webhook</button></div></div></div>
+
+      <!-- Box 3: S3 Bucket ARNs -->
+      <div class="container"><div class="container-header"><h2>S3 bucket ARNs for investigation</h2></div><div class="container-body"><p class="config-section-note">DevOps Agent does not have S3 access by default. The Agent Space IAM role has been configured with explicit <code>s3:GetObject</code> and <code>s3:ListBucket</code> permissions on these buckets.</p><div class="endpoint-row"><span class="endpoint-label">VPC Flow Logs</span><code class="endpoint-url" id="vpcFlowLogBucket">Loading...</code><button class="btn-copy" onclick="copyValue('vpcFlowLogBucket')">Copy</button></div><hr class="config-divider"><div class="endpoint-row"><span class="endpoint-label">ELB Access Logs</span><code class="endpoint-url" id="elbAccessLogBucket">Loading...</code><button class="btn-copy" onclick="copyValue('elbAccessLogBucket')">Copy</button></div><hr class="config-divider"><div class="endpoint-row"><span class="endpoint-label">PCAP Storage</span><code class="endpoint-url" id="pcapStorageBucket">Loading...</code><button class="btn-copy" onclick="copyValue('pcapStorageBucket')">Copy</button></div></div></div>
+    </div>
+    <div class="tab-content" id="tabScenarios">
+      <div class="scenarios-layout">
+        <!-- LEFT COLUMN: Topology diagram -->
+        <div class="scenarios-left">
+          <div class="container topology-container">
+        <div class="container-header">
+          <h2>Network topology</h2>
+          <div style="display:flex;gap:16px;align-items:center;">
+            <span style="display:flex;align-items:center;gap:5px;font-size:clamp(10px,0.7vw,14px);color:var(--color-text-secondary);"><svg width="28" height="8"><line x1="0" y1="4" x2="28" y2="4" stroke="#4ade80" stroke-width="2.5" stroke-linecap="round" stroke-dasharray="4 5"><animate attributeName="stroke-dashoffset" from="18" to="0" dur="3.2s" repeatCount="indefinite"/></line></svg>Healthy</span>
+            <span style="display:flex;align-items:center;gap:5px;font-size:clamp(10px,0.7vw,14px);color:var(--color-text-secondary);"><svg width="28" height="8"><line x1="0" y1="4" x2="28" y2="4" stroke="#f87171" stroke-width="2.5" stroke-linecap="round" stroke-dasharray="4 5" opacity="0.7"><animate attributeName="opacity" values="0.8;0.25;0.8" dur="0.7s" repeatCount="indefinite"/></line></svg>Broken</span>
+          </div>
+        </div>
+        <div class="container-body" style="padding:20px 16px;">
+          <svg id="topologySvg" class="topology-svg" viewBox="0 0 1060 660" xmlns="http://www.w3.org/2000/svg">
+
+            <!-- ── ZONES ──────────────────────────────────────── -->
+            <!-- External: y=8..80 -->
+            <rect x="14" y="8" width="500" height="72" rx="12" ry="12" fill="none" stroke="var(--color-border-input)" stroke-width="1" stroke-dasharray="4 3" opacity="0.7"/>
+            <text x="30" y="26" class="topo-zone-label">External</text>
+
+            <!-- AWS Services (right side, outside VPC): y=340..620 -->
+            <rect x="676" y="340" width="370" height="280" rx="12" ry="12" fill="none" stroke="var(--color-border-input)" stroke-width="1" stroke-dasharray="4 3" opacity="0.7"/>
+            <text x="692" y="358" class="topo-zone-label">AWS Services</text>
+
+            <!-- VPC: y=136..640 -->
+            <rect x="14" y="136" width="636" height="514" rx="12" ry="12" fill="none" stroke="var(--color-border-input)" stroke-width="1.5" stroke-dasharray="6 3"/>
+            <text x="30" y="156" class="topo-zone-label">VPC 10.0.0.0/16</text>
+
+            <!-- IGW bar: y=94..128 -->
+            <rect x="120" y="94" width="370" height="34" rx="8" ry="8" fill="var(--color-background-container)" stroke="var(--color-border-container)" stroke-width="1.5"/>
+
+            <!-- Public Subnet: y=168..298 -->
+            <rect x="32" y="168" width="604" height="130" rx="8" ry="8" fill="var(--color-background-status-info)" opacity="0.18" stroke="var(--color-text-status-info)" stroke-width="0.5"/>
+            <text x="628" y="185" class="topo-subnet-label" fill="var(--color-text-status-info)" text-anchor="end">Public Subnet (10.0.1.0/24)</text>
+
+            <!-- Private Subnet: y=314..636 -->
+            <rect x="32" y="314" width="604" height="322" rx="8" ry="8" fill="var(--color-background-status-success)" opacity="0.1" stroke="var(--color-text-status-success)" stroke-width="0.5"/>
+            <text x="628" y="331" class="topo-subnet-label" fill="var(--color-text-status-success)" text-anchor="end">Private Subnet (10.0.2.0/24)</text>
+
+            <!-- ── EXTERNAL NODES (y=44) ──────────────────────── -->
+            <g class="topo-node" transform="translate(150,44)"><rect class="topo-node-box" x="-44" y="-26" width="88" height="52"/><image class="icon-light" href="icons/users.svg" x="-14" y="-22" width="28" height="28"/><image class="icon-dark" href="icons/users-dark.svg" x="-14" y="-22" width="28" height="28"/><text class="topo-node-label" y="17">Users</text></g>
+            <g class="topo-node" transform="translate(420,44)"><rect class="topo-node-box" x="-44" y="-26" width="88" height="52"/><image class="icon-light" href="icons/internet.svg" x="-14" y="-22" width="28" height="28"/><image class="icon-dark" href="icons/internet-dark.svg" x="-14" y="-22" width="28" height="28"/><text class="topo-node-label" y="17">Internet</text></g>
+
+            <!-- ── IGW NODE ───────────────────────────────────── -->
+            <g class="topo-node" transform="translate(310,104)"><image href="icons/igw.svg" x="-12" y="-8" width="20" height="20"/><text class="topo-node-sublabel" y="20">Internet Gateway</text></g>
+
+            <!-- ── PUBLIC SUBNET NODES (y=234) ────────────────── -->
+            <g class="topo-node" transform="translate(150,234)"><rect class="topo-node-box" x="-52" y="-30" width="104" height="60"/><image href="icons/alb.svg" x="-14" y="-26" width="28" height="28"/><text class="topo-node-label" y="14">ALB</text><text class="topo-node-sublabel" y="25">HTTP :80</text></g>
+            <g class="topo-node" transform="translate(420,234)"><rect class="topo-node-box" x="-58" y="-30" width="116" height="60"/><image href="icons/nat-gateway.svg" x="-14" y="-26" width="28" height="28"/><text class="topo-node-label" y="14">NAT Gateway</text><text class="topo-node-sublabel" y="25">0.0.0.0/0</text></g>
+
+            <!-- ── PRIVATE SUBNET NODES (y=480) ───────────────── -->
+            <g class="topo-node" transform="translate(105,480)"><rect class="topo-node-box" x="-52" y="-30" width="104" height="60"/><image href="icons/rds.svg" x="-14" y="-26" width="28" height="28"/><text class="topo-node-label" y="14">RDS MySQL</text><text class="topo-node-sublabel" y="25">Port 3306</text></g>
+            <g class="topo-node" transform="translate(340,480)"><rect class="topo-node-box" x="-60" y="-32" width="120" height="64" stroke-width="2"/><image href="icons/ec2.svg" x="-14" y="-28" width="28" height="28"/><text class="topo-node-label" y="14">EC2 Instance</text><text class="topo-node-sublabel" y="25">Health Check + nginx</text></g>
+            <!-- Gateway Endpoint — S3 (stacked vertically, right side of private subnet) -->
+            <g class="topo-node" transform="translate(570,400)"><rect class="topo-node-box" x="-56" y="-30" width="112" height="60"/><image href="icons/vpc-endpoint.svg" x="-14" y="-26" width="28" height="28"/><text class="topo-node-label" y="14">Gateway Endpoint</text><text class="topo-node-sublabel" y="25">(S3)</text></g>
+            <!-- Interface Endpoint — Bedrock -->
+            <g class="topo-node" transform="translate(570,490)"><rect class="topo-node-box" x="-56" y="-30" width="112" height="60"/><image href="icons/vpc-endpoint.svg" x="-14" y="-26" width="28" height="28"/><text class="topo-node-label" y="14">Interface Endpoint</text><text class="topo-node-sublabel" y="25">(Bedrock)</text></g>
+            <!-- Interface Endpoint — Location Service -->
+            <g class="topo-node" transform="translate(570,580)"><rect class="topo-node-box" x="-56" y="-30" width="112" height="60"/><image href="icons/vpc-endpoint.svg" x="-14" y="-26" width="28" height="28"/><text class="topo-node-label" y="14">Interface Endpoint</text><text class="topo-node-sublabel" y="25">(Location Service)</text></g>
+
+            <!-- ── AWS SERVICES NODES (outside VPC, right side) ── -->
+            <g class="topo-node" transform="translate(860,400)"><rect class="topo-node-box" x="-52" y="-30" width="104" height="60"/><image href="icons/s3.svg" x="-14" y="-26" width="28" height="28"/><text class="topo-node-label" y="14">Amazon S3</text><text class="topo-node-sublabel" y="25">Storage Service</text></g>
+            <g class="topo-node" transform="translate(860,490)"><rect class="topo-node-box" x="-52" y="-30" width="104" height="60"/><image href="icons/bedrock.svg" x="-14" y="-26" width="28" height="28"/><text class="topo-node-label" y="14">Amazon Bedrock</text><text class="topo-node-sublabel" y="25">AI/ML Service</text></g>
+            <g class="topo-node" transform="translate(860,580)"><rect class="topo-node-box" x="-52" y="-30" width="104" height="60"/><image href="icons/location.svg" x="-14" y="-26" width="28" height="28"/><text class="topo-node-label" y="14">Location Service</text><text class="topo-node-sublabel" y="25">Geolocation</text></g>
+
+            <!-- ── PATHS ──────────────────────────────────────── -->
+
+            <!-- Faint: Users(70) → IGW top(94) -->
+            <path id="path-faint-users" d="M150,70 L150,94" class="topo-path topo-path-healthy" opacity="0.25"/>
+            <path d="M150,70 L150,94" class="topo-flow topo-flow-healthy" opacity="0.15"/>
+            <circle class="topo-dot topo-dot-healthy" r="2.5" opacity="0.4"><animateMotion dur="1.3s" repeatCount="indefinite" fill="freeze"><mpath href="#path-faint-users"/></animateMotion></circle>
+            <!-- Faint: IGW bottom(128) → ALB(204) -->
+            <path id="path-faint-alb" d="M150,128 L150,204" class="topo-path topo-path-healthy" opacity="0.25"/>
+            <path d="M150,128 L150,204" class="topo-flow topo-flow-healthy" opacity="0.15"/>
+            <circle class="topo-dot topo-dot-healthy" r="2.5" opacity="0.4"><animateMotion dur="1.3s" repeatCount="indefinite" fill="freeze"><mpath href="#path-faint-alb"/></animateMotion></circle>
+
+            <!-- S5: ALB(264) → EC2(448) -->
+            <path id="path-s5" d="M150,264 L150,400 C150,440 210,468 280,476" class="topo-path topo-path-healthy"/>
+            <path id="flow-s5" d="M150,264 L150,400 C150,440 210,468 280,476" class="topo-flow topo-flow-healthy"/>
+            <circle class="topo-dot topo-dot-healthy" id="dot-s5" r="3.5" opacity="0"><animateMotion dur="3s" repeatCount="indefinite" fill="freeze"><mpath href="#path-s5"/></animateMotion></circle>
+            <circle id="break-bg-s5" class="topo-break-circle" cx="150" cy="360" r="11"/>
+            <g id="break-x-s5" class="topo-break-x"><line x1="144" y1="354" x2="156" y2="366"/><line x1="156" y1="354" x2="144" y2="366"/></g>
+            <rect class="topo-scenario-badge-bg" id="badge-bg-s5" x="121" y="351" width="20" height="20" rx="10" ry="10" fill="#037f0c"/>
+            <text class="topo-scenario-badge" x="131" y="365">5</text>
+
+            <!-- S1: EC2 → RDS -->
+            <path id="path-s1" d="M280,485 L157,485" class="topo-path topo-path-healthy"/>
+            <path id="flow-s1" d="M280,485 L157,485" class="topo-flow topo-flow-healthy"/>
+            <circle class="topo-dot topo-dot-healthy" id="dot-s1" r="3.5" opacity="0"><animateMotion dur="3.2s" repeatCount="indefinite" fill="freeze"><mpath href="#path-s1"/></animateMotion></circle>
+            <circle id="break-bg-s1" class="topo-break-circle" cx="218" cy="485" r="11"/>
+            <g id="break-x-s1" class="topo-break-x"><line x1="212" y1="479" x2="224" y2="491"/><line x1="224" y1="479" x2="212" y2="491"/></g>
+            <rect class="topo-scenario-badge-bg" id="badge-bg-s1" x="209" y="494" width="20" height="20" rx="10" ry="10" fill="#037f0c"/>
+            <text class="topo-scenario-badge" x="219" y="508">1</text>
+
+            <!-- S2: EC2(448) → NAT bottom(264), NAT top(204) → IGW bottom(128), IGW top(94) → Internet(70) -->
+            <path id="path-s2a" d="M365,448 C365,390 380,330 420,264" class="topo-path topo-path-healthy"/>
+            <path id="flow-s2a" d="M365,448 C365,390 380,330 420,264" class="topo-flow topo-flow-healthy"/>
+            <circle class="topo-dot topo-dot-healthy" id="dot-s2a" r="3.5" opacity="0"><animateMotion dur="2.8s" repeatCount="indefinite" fill="freeze"><mpath href="#path-s2a"/></animateMotion></circle>
+            <path id="path-s2b" d="M420,204 L420,128" class="topo-path topo-path-healthy"/>
+            <path id="flow-s2b" d="M420,204 L420,128" class="topo-flow topo-flow-healthy"/>
+            <circle class="topo-dot topo-dot-healthy" id="dot-s2b" r="3.5" opacity="0"><animateMotion dur="1.3s" repeatCount="indefinite" fill="freeze"><mpath href="#path-s2b"/></animateMotion></circle>
+            <!-- IGW top → Internet (with dot) -->
+            <path id="path-s2c" d="M420,94 L420,70" class="topo-path topo-path-healthy" opacity="0.5"/>
+            <path d="M420,94 L420,70" class="topo-flow topo-flow-healthy" opacity="0.4"/>
+            <circle class="topo-dot topo-dot-healthy" r="2.5" opacity="0.5"><animateMotion dur="0.7s" repeatCount="indefinite" fill="freeze"><mpath href="#path-s2c"/></animateMotion></circle>
+            <circle id="break-bg-s2" class="topo-break-circle" cx="375" cy="370" r="11"/>
+            <g id="break-x-s2" class="topo-break-x"><line x1="369" y1="364" x2="381" y2="376"/><line x1="381" y1="364" x2="369" y2="376"/></g>
+            <rect class="topo-scenario-badge-bg" id="badge-bg-s2" x="343" y="361" width="20" height="20" rx="10" ry="10" fill="#037f0c"/>
+            <text class="topo-scenario-badge" x="353" y="375">2</text>
+
+            <!-- S3: EC2 → S3 Gateway Endpoint → Amazon S3 -->
+            <path id="path-s3" d="M400,475 C440,450 490,420 514,405" class="topo-path topo-path-healthy"/>
+            <path id="flow-s3" d="M400,475 C440,450 490,420 514,405" class="topo-flow topo-flow-healthy"/>
+            <circle class="topo-dot topo-dot-healthy" id="dot-s3" r="3.5" opacity="0"><animateMotion dur="2.8s" repeatCount="indefinite" fill="freeze"><mpath href="#path-s3"/></animateMotion></circle>
+            <!-- Gateway Endpoint → S3 service -->
+            <path d="M626,400 L808,400" class="topo-path topo-path-healthy" opacity="0.3"/>
+            <path d="M626,400 L808,400" class="topo-flow topo-flow-healthy" opacity="0.2"/>
+            <circle id="break-bg-s3" class="topo-break-circle" cx="470" cy="425" r="11"/>
+            <g id="break-x-s3" class="topo-break-x"><line x1="464" y1="419" x2="476" y2="431"/><line x1="476" y1="419" x2="464" y2="431"/></g>
+            <rect class="topo-scenario-badge-bg" id="badge-bg-s3" x="465" y="398" width="20" height="20" rx="10" ry="10" fill="#037f0c"/>
+            <text class="topo-scenario-badge" x="475" y="412">3</text>
+
+            <!-- S4: EC2 → Bedrock Interface Endpoint → Amazon Bedrock -->
+            <path id="path-s4" d="M400,485 L514,490" class="topo-path topo-path-healthy"/>
+            <path id="flow-s4" d="M400,485 L514,490" class="topo-flow topo-flow-healthy"/>
+            <circle class="topo-dot topo-dot-healthy" id="dot-s4" r="3.5" opacity="0"><animateMotion dur="2.8s" repeatCount="indefinite" fill="freeze"><mpath href="#path-s4"/></animateMotion></circle>
+            <!-- Interface Endpoint → Bedrock service -->
+            <path d="M626,490 L808,490" class="topo-path topo-path-healthy" opacity="0.3"/>
+            <path d="M626,490 L808,490" class="topo-flow topo-flow-healthy" opacity="0.2"/>
+            <circle id="break-bg-s4" class="topo-break-circle" cx="470" cy="487" r="11"/>
+            <g id="break-x-s4" class="topo-break-x"><line x1="464" y1="481" x2="476" y2="493"/><line x1="476" y1="481" x2="464" y2="493"/></g>
+            <rect class="topo-scenario-badge-bg" id="badge-bg-s4" x="465" y="464" width="20" height="20" rx="10" ry="10" fill="#037f0c"/>
+            <text class="topo-scenario-badge" x="475" y="478">4</text>
+
+            <!-- S6: EC2 → CloudWatch Interface Endpoint → CloudWatch Service -->
+            <path id="path-s6" d="M400,500 C440,540 490,565 514,575" class="topo-path topo-path-healthy"/>
+            <path id="flow-s6" d="M400,500 C440,540 490,565 514,575" class="topo-flow topo-flow-healthy"/>
+            <circle class="topo-dot topo-dot-healthy" id="dot-s6" r="3.5" opacity="0"><animateMotion dur="2.8s" repeatCount="indefinite" fill="freeze"><mpath href="#path-s6"/></animateMotion></circle>
+            <!-- CW Endpoint → CloudWatch service -->
+            <path class="topo-path topo-path-healthy" id="path-s6b" d="M626,580 L808,580" opacity="0.3"/>
+            <path class="topo-flow topo-flow-healthy" id="flow-s6b" d="M626,580 L808,580" opacity="0.2"/>
+            <circle id="break-bg-s6" class="topo-break-circle" cx="470" cy="545" r="11"/>
+            <g id="break-x-s6" class="topo-break-x"><line x1="464" y1="539" x2="476" y2="551"/><line x1="476" y1="539" x2="464" y2="551"/></g>
+            <rect class="topo-scenario-badge-bg" id="badge-bg-s6" x="465" y="524" width="20" height="20" rx="10" ry="10" fill="#037f0c"/>
+            <text class="topo-scenario-badge" x="475" y="538">6</text>
+
+            <!-- ══════════════════════════════════════════════════════ -->
+            <!-- ALARM PIPELINE (top-right)                             -->
+            <!-- 6 alarms → SNS → Lambda → DevOps Agent                -->
+            <!-- ══════════════════════════════════════════════════════ -->
+
+            <!-- Pipeline box -->
+            <rect x="676" y="8" width="370" height="320" rx="12" ry="12" fill="none" stroke="var(--color-border-input)" stroke-width="1" stroke-dasharray="4 3" opacity="0.7"/>
+            <text x="692" y="28" class="topo-zone-label">Alarm Pipeline</text>
+
+            <!-- 6 CloudWatch Alarms stacked vertically -->
+            <g id="alarmNode1" transform="translate(780,55)">
+              <rect class="topo-node-box" x="-18" y="-18" width="36" height="36" rx="4" ry="4"/>
+              <image href="icons/cloudwatch-alarm.svg" x="-12" y="-12" width="24" height="24"/>
+              <text class="topo-node-sublabel" x="-28" y="4" style="font-size:9px;text-anchor:end">alarm-1</text>
+            </g>
+            <g id="alarmNode2" transform="translate(780,100)">
+              <rect class="topo-node-box" x="-18" y="-18" width="36" height="36" rx="4" ry="4"/>
+              <image href="icons/cloudwatch-alarm.svg" x="-12" y="-12" width="24" height="24"/>
+              <text class="topo-node-sublabel" x="-28" y="4" style="font-size:9px;text-anchor:end">alarm-2</text>
+            </g>
+            <g id="alarmNode3" transform="translate(780,145)">
+              <rect class="topo-node-box" x="-18" y="-18" width="36" height="36" rx="4" ry="4"/>
+              <image href="icons/cloudwatch-alarm.svg" x="-12" y="-12" width="24" height="24"/>
+              <text class="topo-node-sublabel" x="-28" y="4" style="font-size:9px;text-anchor:end">alarm-3</text>
+            </g>
+            <g id="alarmNode4" transform="translate(780,190)">
+              <rect class="topo-node-box" x="-18" y="-18" width="36" height="36" rx="4" ry="4"/>
+              <image href="icons/cloudwatch-alarm.svg" x="-12" y="-12" width="24" height="24"/>
+              <text class="topo-node-sublabel" x="-28" y="4" style="font-size:9px;text-anchor:end">alarm-4</text>
+            </g>
+            <g id="alarmNode5" transform="translate(780,235)">
+              <rect class="topo-node-box" x="-18" y="-18" width="36" height="36" rx="4" ry="4"/>
+              <image href="icons/cloudwatch-alarm.svg" x="-12" y="-12" width="24" height="24"/>
+              <text class="topo-node-sublabel" x="-28" y="4" style="font-size:9px;text-anchor:end">alarm-5</text>
+            </g>
+            <g id="alarmNode6" transform="translate(780,280)">
+              <rect class="topo-node-box" x="-18" y="-18" width="36" height="36" rx="4" ry="4"/>
+              <image href="icons/cloudwatch-alarm.svg" x="-12" y="-12" width="24" height="24"/>
+              <text class="topo-node-sublabel" x="-28" y="4" style="font-size:9px;text-anchor:end">alarm-6</text>
+            </g>
+
+            <!-- SNS Topic -->
+            <g transform="translate(860,168)">
+              <rect class="topo-node-box" x="-22" y="-22" width="44" height="44" rx="4" ry="4"/>
+              <image href="icons/sns-topic.svg" x="-16" y="-16" width="32" height="32"/>
+              <text class="topo-node-sublabel" y="32" style="font-size:8px">SNS Topic</text>
+            </g>
+
+            <!-- Lambda -->
+            <g transform="translate(940,168)">
+              <rect class="topo-node-box" x="-22" y="-22" width="44" height="44" rx="4" ry="4"/>
+              <image href="icons/lambda.svg" x="-16" y="-16" width="32" height="32"/>
+              <text class="topo-node-sublabel" y="32" style="font-size:8px">Webhook</text>
+            </g>
+
+            <!-- DevOps Agent -->
+            <a id="devopsAgentLink" href="#" target="_blank" style="cursor:pointer;">
+            <g transform="translate(1014,168)">
+              <rect class="topo-node-box" x="-22" y="-22" width="44" height="44" rx="4" ry="4"/>
+              <image href="DevOpsAgent.svg" x="-16" y="-16" width="32" height="32"/>
+              <text y="32" style="font-family:var(--font-family);font-size:8px;text-anchor:middle;fill:var(--color-text-interactive);cursor:pointer;">DevOps Agent</text>
+            </g>
+            </a>
+
+            <!-- Idle lines: alarms → SNS (faint) -->
+            <g id="pipelineIdle">
+              <line x1="798" y1="55" x2="838" y2="152" stroke="var(--color-border-divider)" stroke-width="1" fill="none" opacity="0.3"/>
+              <line x1="798" y1="100" x2="838" y2="157" stroke="var(--color-border-divider)" stroke-width="1" fill="none" opacity="0.3"/>
+              <line x1="798" y1="145" x2="838" y2="163" stroke="var(--color-border-divider)" stroke-width="1" fill="none" opacity="0.3"/>
+              <line x1="798" y1="190" x2="838" y2="173" stroke="var(--color-border-divider)" stroke-width="1" fill="none" opacity="0.3"/>
+              <line x1="798" y1="235" x2="838" y2="179" stroke="var(--color-border-divider)" stroke-width="1" fill="none" opacity="0.3"/>
+              <line x1="798" y1="280" x2="838" y2="184" stroke="var(--color-border-divider)" stroke-width="1" fill="none" opacity="0.3"/>
+              <line x1="882" y1="168" x2="918" y2="168" stroke="var(--color-border-divider)" stroke-width="1" fill="none" opacity="0.3"/>
+              <line x1="962" y1="168" x2="992" y2="168" stroke="var(--color-border-divider)" stroke-width="1" fill="none" opacity="0.3"/>
+            </g>
+
+            <!-- Active lines -->
+            <g id="pipelineFlow" style="display:none;">
+              <line id="alarmLine1" x1="798" y1="55" x2="838" y2="152" class="topo-path topo-path-broken" style="display:none;"/>
+              <line id="alarmLine2" x1="798" y1="100" x2="838" y2="157" class="topo-path topo-path-broken" style="display:none;"/>
+              <line id="alarmLine3" x1="798" y1="145" x2="838" y2="163" class="topo-path topo-path-broken" style="display:none;"/>
+              <line id="alarmLine4" x1="798" y1="190" x2="838" y2="173" class="topo-path topo-path-broken" style="display:none;"/>
+              <line id="alarmLine5" x1="798" y1="235" x2="838" y2="179" class="topo-path topo-path-broken" style="display:none;"/>
+              <line id="alarmLine6" x1="798" y1="280" x2="838" y2="184" class="topo-path topo-path-broken" style="display:none;"/>
+              <line x1="882" y1="168" x2="918" y2="168" class="topo-path topo-path-broken"/>
+              <line x1="882" y1="168" x2="918" y2="168" class="topo-flow topo-flow-broken"/>
+              <line x1="962" y1="168" x2="992" y2="168" class="topo-path topo-path-broken"/>
+              <line x1="962" y1="168" x2="992" y2="168" class="topo-flow topo-flow-broken"/>
+            </g>
+
+          </svg>
+        </div>
+      </div>
+        </div>
+        <!-- RIGHT COLUMN: Scenarios + Terminal -->
+        <div class="scenarios-right">
+
+      <div id="webhookBanner" class="container" style="display:block;border-left:3px solid var(--color-text-status-warning);margin-bottom:var(--space-s);">
+        <div class="container-body" style="padding:var(--space-s) var(--space-l);font-size:12px;color:var(--color-text-status-warning);">
+          ⚠️ Webhook not configured. Go to the <strong>Configuration</strong> tab to set up the webhook before running scenarios.
+        </div>
+      </div>
+
+      <div class="scenario-grid">
+        <div class="container scenario-card" id="scenarioCard1"><div class="container-header"><h2>Scenario 1: Security Group Rule</h2><span class="status-badge status-badge-success scenario-status" id="scenarioStatus1"><span class="status-dot status-dot-success"></span><span class="scenario-status-text">Healthy</span></span></div><div class="container-body"><p class="scenario-description">Revoke RDS inbound rule (port 3306), breaking DB connectivity. Agent investigates via CloudTrail <code>RevokeSecurityGroupIngress</code>.</p><div class="btn-group"><button class="btn btn-danger break-btn" data-scenario="1" onclick="breakScenario(1)">Break</button><button class="btn btn-primary fix-btn" data-scenario="1" onclick="fixScenario(1)" disabled>Fix</button></div></div></div>
+        <div class="container scenario-card" id="scenarioCard2"><div class="container-header"><h2>Scenario 2: NAT Gateway Route</h2><span class="status-badge status-badge-success scenario-status" id="scenarioStatus2"><span class="status-dot status-dot-success"></span><span class="scenario-status-text">Healthy</span></span></div><div class="container-body"><p class="scenario-description">Delete NAT GW default route (0.0.0.0/0), breaking outbound internet. Agent investigates via CloudTrail <code>DeleteRoute</code>.</p><div class="btn-group"><button class="btn btn-danger break-btn" data-scenario="2" onclick="breakScenario(2)">Break</button><button class="btn btn-primary fix-btn" data-scenario="2" onclick="fixScenario(2)" disabled>Fix</button></div></div></div>
+        <div class="container scenario-card" id="scenarioCard3"><div class="container-header"><h2>Scenario 3: VPC Endpoint Policy</h2><span class="status-badge status-badge-success scenario-status" id="scenarioStatus3"><span class="status-dot status-dot-success"></span><span class="scenario-status-text">Healthy</span></span></div><div class="container-body"><p class="scenario-description">Restrict S3 Gateway Endpoint policy to Deny, breaking S3 access. Agent investigates via CloudTrail <code>ModifyVpcEndpoint</code>.</p><div class="btn-group"><button class="btn btn-danger break-btn" data-scenario="3" onclick="breakScenario(3)">Break</button><button class="btn btn-primary fix-btn" data-scenario="3" onclick="fixScenario(3)" disabled>Fix</button></div></div></div>
+        <div class="container scenario-card" id="scenarioCard4"><div class="container-header"><h2>Scenario 4: Bedrock Endpoint Subnets</h2><span class="status-badge status-badge-success scenario-status" id="scenarioStatus4"><span class="status-dot status-dot-success"></span><span class="scenario-status-text">Healthy</span></span></div><div class="container-body"><p class="scenario-description">Remove Bedrock Interface Endpoint subnets, breaking AI feature. Agent investigates via CloudTrail <code>ModifyVpcEndpoint</code>.</p><div class="btn-group"><button class="btn btn-danger break-btn" data-scenario="4" onclick="breakScenario(4)">Break</button><button class="btn btn-primary fix-btn" data-scenario="4" onclick="fixScenario(4)" disabled>Fix</button></div></div></div>
+        <div class="container scenario-card" id="scenarioCard5"><div class="container-header"><h2>Scenario 5: ALB Backend Failure</h2><span class="status-badge status-badge-success scenario-status" id="scenarioStatus5"><span class="status-dot status-dot-success"></span><span class="scenario-status-text">Healthy</span></span></div><div class="container-body"><p class="scenario-description">Stop backend application, causing ALB to return 502 Bad Gateway. Agent analyzes ELB Access Logs from S3 to identify failing target.</p><div class="btn-group"><button class="btn btn-danger break-btn" data-scenario="5" onclick="breakScenario(5)">Break</button><button class="btn btn-primary fix-btn" data-scenario="5" onclick="fixScenario(5)" disabled>Fix</button></div></div></div>
+        <div class="container scenario-card" id="scenarioCard6"><div class="container-header"><h2>Scenario 6: TLS/SNI Mismatch + PCAP</h2><span class="status-badge status-badge-success scenario-status" id="scenarioStatus6"><span class="status-dot status-dot-success"></span><span class="scenario-status-text">Healthy</span></span></div><div class="container-body"><p class="scenario-description">DNS poisoning redirects Location Service endpoint to local nginx, causing TLS cert mismatch. Agent analyzes PCAP via MCP Server.</p><div class="btn-group"><button class="btn btn-danger break-btn" data-scenario="6" onclick="breakScenario(6)">Break</button><button class="btn btn-primary fix-btn" data-scenario="6" onclick="fixScenario(6)" disabled>Fix</button></div></div></div>
+      </div>
+      <div class="container session-bar-container" id="sessionInfo" style="display:none;"><div class="container-body" style="padding:var(--space-m) var(--space-xl);"><div class="session-bar"><span class="kv-label">Active session:</span><span class="session-id" id="currentSessionId">&mdash;</span></div></div></div>
+      <div class="container terminal-container"><div class="container-header"><h2>Investigation event stream</h2><div class="terminal-toolbar"><button class="btn-link" onclick="clearTerminal()">Clear</button><label><input type="checkbox" id="autoScroll" checked> Auto-scroll</label></div></div><div class="terminal" id="terminal"></div></div>
+      <div class="container findings-container" id="findingsCard" style="display:none;"><div class="container-header"><h2>DevOps Agent findings</h2><button class="btn-link" onclick="clearFindings()">Dismiss</button></div><div class="findings-body" id="findingsContent"></div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <script>window.DASHBOARD_CONFIG = { apiUrl: '' };</script>
+  <script src="app.js"></script>
+</body>
+</html>

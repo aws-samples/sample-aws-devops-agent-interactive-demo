@@ -1,0 +1,27 @@
+# Dependencies
+node_modules/
+
+# CDK build output
+cdk.out/
+
+# CDK context (account-specific cached lookups)
+cdk.context.json
+
+# TypeScript build output
+*.js
+!jest.config.js
+!frontend/**/*.js
+!health-check-app/**/*.js
+!codebuild-scripts/**/*.sh
+*.d.ts
+
+# macOS
+.DS_Store
+
+# IDE
+.vscode/
+.idea/
+
+# Environment
+.env
+.env.local

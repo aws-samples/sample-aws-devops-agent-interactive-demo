@@ -1,0 +1,92 @@
+version: 0.2
+phases:
+  pre_build:
+    commands:
+      - echo "=== Phase Pre-build - ECR Login ==="
+      - aws ecr get-login-password --region $AWS_DEFAULT_REGION | docker login --username AWS --password-stdin $AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com
+
+  build:
+    commands:
+      - echo "=== Phase Build - Create Dockerfile, Build, Push ==="
+      - mkdir -p /tmp/build && cd /tmp/build
+
+      # Create Dockerfile inline (matching working CFN pattern)
+      - |
+        cat > Dockerfile << 'EOF'
+        FROM public.ecr.aws/docker/library/python:3.13-slim
+
+        RUN apt-get update && \
+            DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+            tshark tcpdump curl git && \
+            rm -rf /var/lib/apt/lists/*
+
+        WORKDIR /app
+
+        RUN git clone https://github.com/aws-samples/sample-pcap-analyzer-mcp.git /tmp/pcap-repo && \
+            pip install --no-cache-dir /tmp/pcap-repo boto3 && \
+            rm -rf /tmp/pcap-repo
+
+        # Install FastMCP for streamable-http transport
+        RUN pip install --no-cache-dir fastmcp
+
+        COPY server.py /app/server.py
+
+        RUN mkdir -p /tmp/pcap_storage
+
+        ENV PCAP_STORAGE_DIR=/tmp/pcap_storage
+        ENV WIRESHARK_PATH=/usr/bin/tshark
+        ENV PYTHONUNBUFFERED=1
+
+        EXPOSE 8000
+
+        HEALTHCHECK --interval=30s --timeout=5s --retries=3 \
+          CMD curl -sf http://localhost:8000/mcp || exit 1
+
+        CMD ["python", "/app/server.py"]
+        EOF
+
+      # Copy the server wrapper from S3 source
+      - cp $CODEBUILD_SRC_DIR/server-wrapper.py server.py
+
+      - echo "=== Build ARM64 image ==="
+      - docker build -t $ECR_REPO_URI:latest .
+
+      - echo "=== Push to ECR ==="
+      - docker push $ECR_REPO_URI:latest
+
+      - echo "=== Create or Update AgentCore Runtime ==="
+      - |
+        RUNTIME_NAME="pcapMcp$(date +%s)"
+        DISCOVERY_URL="https://cognito-idp.$AWS_DEFAULT_REGION.amazonaws.com/$COGNITO_USER_POOL_ID/.well-known/openid-configuration"
+        echo "Runtime name: $RUNTIME_NAME"
+
+        echo "Creating runtime..."
+        CREATE_RESULT=$(aws bedrock-agentcore-control create-agent-runtime \
+          --agent-runtime-name "$RUNTIME_NAME" \
+          --description "PCAP Analyzer MCP Server" \
+          --role-arn $ROLE_ARN \
+          --network-configuration '{"networkMode":"PUBLIC"}' \
+          --protocol-configuration '{"serverProtocol":"MCP"}' \
+          --authorizer-configuration "{\"customJWTAuthorizer\":{\"discoveryUrl\":\"$DISCOVERY_URL\",\"allowedClients\":[\"$COGNITO_CLIENT_ID\"]}}" \
+          --agent-runtime-artifact "{\"containerConfiguration\":{\"containerUri\":\"$ECR_REPO_URI:latest\"}}" \
+          --region $AWS_DEFAULT_REGION 2>&1)
+        echo "Create result: $CREATE_RESULT"
+
+        RUNTIME_ID=$(echo "$CREATE_RESULT" | python3 -c "import sys,json; print(json.load(sys.stdin).get('agentRuntimeId','FAILED'))" 2>/dev/null || echo "FAILED")
+        RUNTIME_ARN=$(echo "$CREATE_RESULT" | python3 -c "import sys,json; print(json.load(sys.stdin).get('agentRuntimeArn','FAILED'))" 2>/dev/null || echo "FAILED")
+        echo "Runtime ID: $RUNTIME_ID"
+        echo "Runtime ARN: $RUNTIME_ARN"
+
+        ENCODED_ARN=$(python3 -c "import urllib.parse; print(urllib.parse.quote('$RUNTIME_ARN', safe=''))")
+        MCP_ENDPOINT="https://bedrock-agentcore.$AWS_DEFAULT_REGION.amazonaws.com/runtimes/$ENCODED_ARN/invocations?qualifier=DEFAULT"
+        echo "MCP Endpoint URL: $MCP_ENDPOINT"
+
+        aws ssm put-parameter --name "/pcap-mcp/runtime-id" --value "$RUNTIME_ID" --type String --overwrite --region $AWS_DEFAULT_REGION
+        aws ssm put-parameter --name "/pcap-mcp/runtime-arn" --value "$RUNTIME_ARN" --type String --overwrite --region $AWS_DEFAULT_REGION
+        aws ssm put-parameter --name "/pcap-mcp/mcp-endpoint-url" --value "$MCP_ENDPOINT" --type String --overwrite --region $AWS_DEFAULT_REGION
+
+      - echo "=== DONE ==="
+
+  post_build:
+    commands:
+      - echo "PCAP MCP Server deployed successfully."
