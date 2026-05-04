@@ -184,12 +184,6 @@ export const handler = async (event: any) => {
     // Assume the network-ops-role for all infrastructure changes
     const ops = await getOpsClients();
 
-    // Write break_triggered event first so the event stream shows the full sequence
-    await ddb.send(new PutItemCommand({
-      TableName: TABLE_NAME,
-      Item: { sessionId: { S: sessionId }, timestamp: { S: now }, eventType: { S: 'scenario_break_triggered' }, data: { S: JSON.stringify({ scenarioId }) }, ttl: { N: String(ttl) } },
-    }));
-
     let breakMessage: string;
     switch (scenarioId) {
       case 1: breakMessage = await breakScenario1(ops.ec2); break;
