@@ -2,7 +2,72 @@
 
 ## Overview
 
-These scripts build and deploy the PCAP Analyzer MCP Server as an AgentCore Runtime container. The server wraps the upstream [sample-pcap-analyzer-mcp](https://github.com/aws-samples/sample-pcap-analyzer-mcp) with fixes for AgentCore compatibility, S3 integration, and tshark bugs.
+These scripts build and deploy the PCAP Analyzer MCP Server as an [AgentCore Runtime](https://docs.aws.amazon.com/devopsagent/latest/userguide/configuring-capabilities-for-aws-devops-agent.html) container. The server wraps the upstream [sample-pcap-analyzer-mcp](https://github.com/aws-samples/sample-pcap-analyzer-mcp) with fixes for AgentCore compatibility, S3 integration, and tshark bugs.
+
+## Available Tools (29)
+
+Once registered with DevOps Agent, the MCP server provides 29 tools across 6 categories:
+
+### S3 Integration (custom)
+
+| Tool | Description |
+|:-----|:------------|
+| `list_s3_pcap_files` | List PCAP files in an S3 bucket or prefix |
+
+### General Analysis
+
+| Tool | Description |
+|:-----|:------------|
+| `analyze_pcap_file` | Analyze a PCAP file with configurable analysis type (summary, protocols, conversations) |
+| `list_captured_files` | List all PCAP files in the local storage directory |
+| `list_network_interfaces` | List available network interfaces for packet capture |
+| `extract_http_requests` | Extract HTTP requests from a PCAP file |
+| `search_packet_content` | Search for specific patterns in packet content |
+
+### TLS / Certificate Analysis
+
+| Tool | Description |
+|:-----|:------------|
+| `analyze_tls_handshakes` | Analyze TLS handshakes including SNI and certificate details |
+| `extract_certificate_details` | Extract SSL/TLS certificate details and validate against SNI |
+| `analyze_sni_mismatches` | Detect SNI mismatches and correlate with connection resets |
+| `analyze_tls_alerts` | Analyze TLS alert messages that indicate handshake failures |
+| `extract_tls_cipher_analysis` | Analyze TLS cipher suite negotiations and compatibility issues |
+
+### TCP Analysis
+
+| Tool | Description |
+|:-----|:------------|
+| `analyze_connection_lifecycle` | Analyze complete connection lifecycle from SYN to FIN/RST |
+| `analyze_tcp_retransmissions` | Analyze TCP retransmissions and packet loss patterns |
+| `analyze_tcp_zero_window` | Analyze TCP zero window conditions and flow control issues |
+| `analyze_tcp_window_scaling` | Analyze TCP window scaling and flow control mechanisms |
+
+### Network Performance
+
+| Tool | Description |
+|:-----|:------------|
+| `analyze_network_performance` | Analyze network performance metrics from a PCAP file |
+| `analyze_network_latency` | Analyze network latency and response times |
+| `analyze_packet_timing_issues` | Analyze packet timing issues and duplicate packets |
+| `analyze_congestion_indicators` | Analyze network congestion indicators and quality metrics |
+| `analyze_bandwidth_utilization` | Analyze bandwidth utilization and traffic patterns |
+| `analyze_network_quality_metrics` | Analyze network quality metrics including jitter and packet loss |
+| `analyze_application_response_times` | Analyze application layer response times and performance |
+| `generate_traffic_timeline` | Generate traffic timeline with specified time intervals |
+| `generate_throughput_io_graph` | Generate throughput I/O graph data with specified time intervals |
+
+### Security and Diagnostics
+
+| Tool | Description |
+|:-----|:------------|
+| `analyze_dns_resolution_issues` | Analyze DNS resolution issues and query patterns |
+| `analyze_expert_information` | Analyze Wireshark expert information for network issues |
+| `analyze_protocol_anomalies` | Analyze protocol anomalies and malformed packets |
+| `analyze_network_topology` | Analyze network topology and routing information |
+| `analyze_security_threats` | Analyze potential security threats and suspicious activities |
+
+> All tools that accept a `pcap_file` parameter support both local paths and `s3://` URIs. S3 files are downloaded transparently before analysis.
 
 ## Architecture
 
