@@ -233,6 +233,8 @@ Go to the **Networking Scenarios** tab:
 3. Click the **DevOps Agent** link in the topology diagram to open the Operator Access dashboard and view full investigation findings
 4. Click **Fix** to restore the infrastructure
 
+> **Note:** The Operator Access dashboard is the DevOps Agent's investigation interface. To access it the first time, go to the **Agent Space console** (link shown in the deployment output), then click **Operator Access**. Once logged in, you can also reach it directly by clicking the **DevOps Agent** icon in the topology diagram on the dashboard.
+
 > **Tip:** Only one scenario can be active at a time. Wait for the investigation to complete before clicking Fix.
 
 ---
