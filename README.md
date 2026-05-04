@@ -50,10 +50,6 @@ An interactive demo showcasing [AWS DevOps Agent](https://docs.aws.amazon.com/de
 
 Deploy a fully functional environment with a single command. Break things on purpose, watch DevOps Agent investigate using CloudTrail, VPC Flow Logs, ELB Access Logs, and PCAP analysis, then fix them.
 
-### How it works
-
-> **1.** You click **Break** on the dashboard → **2.** Real infrastructure change happens → **3.** CloudWatch Alarm fires → **4.** SNS notifies webhook Lambda → **5.** Lambda sends HMAC-signed event to DevOps Agent → **6.** DevOps Agent investigates using CloudTrail, VPC Flow Logs, ELB Access Logs, or PCAP → **7.** Findings appear in the dashboard → **8.** You click **Fix** to restore
-
 ---
 
 ## Demo Video
