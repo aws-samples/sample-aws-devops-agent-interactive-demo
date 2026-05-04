@@ -171,6 +171,15 @@ Go to the **Configuration** tab on the dashboard. You'll see three sections:
 
 DevOps Agent does not have S3 access by default. To investigate scenarios that rely on VPC Flow Logs (scenarios 1, 2), ELB Access Logs (scenario 5), and PCAP captures (scenario 6), the Agent Space IAM role needs explicit read permissions on the log buckets.
 
+Two specific S3 permissions are required:
+
+| Permission | What it does |
+|:-----------|:-------------|
+| `s3:ListBucket` | Allows DevOps Agent to list objects in a bucket, so it can discover which log files exist for a given time range |
+| `s3:GetObject` | Allows DevOps Agent to download and read individual log files for analysis |
+
+These are read-only permissions scoped to the three specific buckets created by this demo. DevOps Agent cannot write, delete, or modify any objects.
+
 This demo pre-configures the following inline policy on the Agent Space role:
 
 ```json
