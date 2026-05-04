@@ -62,18 +62,18 @@ async function authenticateWithCognito(username, password) {
 }
 
 async function ensureAuth() {
-  if (authToken && Date.now() < authTokenExpiry) return;
+  if (authToken && Date.now() < authTokenExpiry) return true;
   // Token expired — try to re-authenticate with stored credentials
   const stored = sessionStorage.getItem('dashboardAuthToken');
   const expiry = parseInt(sessionStorage.getItem('dashboardAuthExpiry') || '0', 10);
   if (stored && Date.now() < expiry) {
     authToken = stored;
     authTokenExpiry = expiry;
-    return;
+    return true;
   }
   // Need fresh login
   showLoginOverlay();
-  throw new Error('AUTH_REQUIRED');
+  return false;
 }
 
 function showLoginOverlay() {
@@ -227,8 +227,8 @@ function initDashboard() {
   fetchConfig();
   pollHealth();
   pollEvents();
-  setInterval(pollHealth, 5000);
-  setInterval(pollEvents, 5000);
+  setInterval(pollHealth, 3000);
+  setInterval(pollEvents, 3000);
 
   // Auto-scroll terminal to bottom on resize
   window.addEventListener('resize', scrollTerminalToBottom);
@@ -237,7 +237,7 @@ function initDashboard() {
 async function autoLogin() {
   // If credentials are embedded in config response, auto-login
   try {
-    await ensureAuth();
+    if (!await ensureAuth()) return;
     const res = await fetch(`${API_BASE_URL}/config`, { headers: getAuthHeaders() });
     if (res.status === 401 || res.status === 403) {
       // API requires auth — show login form, user must enter credentials manually
@@ -272,7 +272,7 @@ function setConnectionStatus(connected) {
 // ── Health Polling ─────────────────────────────────────────────────
 async function pollHealth() {
   try {
-    await ensureAuth();
+    if (!await ensureAuth()) return;
     const res = await fetch(`${API_BASE_URL}/health`, { headers: getAuthHeaders() });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const d = await res.json();
@@ -310,7 +310,7 @@ async function pollHealth() {
     updateButtonStates();
 
   } catch (e) {
-    if (e.message !== 'AUTH_REQUIRED') setConnectionStatus(false);
+    setConnectionStatus(false);
   }
 }
 
@@ -477,7 +477,7 @@ function updateAlarmDot(scenarioId, status) {
 async function pollEvents() {
   if (!currentSessionId) return;
   try {
-    await ensureAuth();
+    if (!await ensureAuth()) return;
     const res = await fetch(`${API_BASE_URL}/events?sessionId=${currentSessionId}`, { headers: getAuthHeaders() });
     if (!res.ok) return;
     const d = await res.json();
@@ -487,7 +487,9 @@ async function pollEvents() {
       knownEventCount = evts.length;
       scrollTerminalToBottom();
     }
-  } catch (e) { /* silent */ }
+  } catch (e) {
+    console.warn('pollEvents error:', e.message);
+  }
 }
 
 // ── Event Rendering ────────────────────────────────────────────────
@@ -574,7 +576,7 @@ async function breakScenario(scenarioId) {
   log('t-system', `Sending break request for Scenario ${scenarioId}...`);
 
   try {
-    await ensureAuth();
+    if (!await ensureAuth()) return;
     const res = await fetch(`${API_BASE_URL}/break`, {
       method: 'POST',
       headers: getAuthHeaders(),
@@ -616,7 +618,7 @@ async function fixScenario(scenarioId) {
   log('t-system', `Sending fix request for Scenario ${scenarioId}...`);
 
   try {
-    await ensureAuth();
+    if (!await ensureAuth()) return;
     const res = await fetch(`${API_BASE_URL}/fix`, {
       method: 'POST',
       headers: getAuthHeaders(),
@@ -645,7 +647,7 @@ async function fixScenario(scenarioId) {
 // ── MCP Config ─────────────────────────────────────────────────────
 async function fetchConfig() {
   try {
-    await ensureAuth();
+    if (!await ensureAuth()) return;
     const res = await fetch(`${API_BASE_URL}/config`, { headers: getAuthHeaders() });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const cfg = await res.json();
@@ -746,7 +748,7 @@ async function configureWebhook() {
   status.textContent = '';
 
   try {
-    await ensureAuth();
+    if (!await ensureAuth()) return;
     const res = await fetch(`${API_BASE_URL}/webhook-config`, {
       method: 'POST',
       headers: getAuthHeaders(),
