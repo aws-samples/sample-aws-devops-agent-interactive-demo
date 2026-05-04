@@ -58,6 +58,33 @@ export class NetworkStack extends cdk.Stack {
 
     this.vpcFlowLogBucket = flowLogBucket;
 
+    // Explicit bucket policy for VPC Flow Logs (required in some account configurations)
+    flowLogBucket.addToResourcePolicy(new cdk.aws_iam.PolicyStatement({
+      sid: 'AWSLogDeliveryWrite',
+      effect: cdk.aws_iam.Effect.ALLOW,
+      principals: [new cdk.aws_iam.ServicePrincipal('delivery.logs.amazonaws.com')],
+      actions: ['s3:PutObject'],
+      resources: [`${flowLogBucket.bucketArn}/AWSLogs/${cdk.Aws.ACCOUNT_ID}/*`],
+      conditions: {
+        StringEquals: {
+          's3:x-amz-acl': 'bucket-owner-full-control',
+          'aws:SourceAccount': cdk.Aws.ACCOUNT_ID,
+        },
+      },
+    }));
+    flowLogBucket.addToResourcePolicy(new cdk.aws_iam.PolicyStatement({
+      sid: 'AWSLogDeliveryCheck',
+      effect: cdk.aws_iam.Effect.ALLOW,
+      principals: [new cdk.aws_iam.ServicePrincipal('delivery.logs.amazonaws.com')],
+      actions: ['s3:GetBucketAcl', 's3:ListBucket'],
+      resources: [flowLogBucket.bucketArn],
+      conditions: {
+        StringEquals: {
+          'aws:SourceAccount': cdk.Aws.ACCOUNT_ID,
+        },
+      },
+    }));
+
     // -----------------------------------------------------------------------
     // VPC with explicit subnet configuration
     // -----------------------------------------------------------------------
