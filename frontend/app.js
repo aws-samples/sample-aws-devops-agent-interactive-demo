@@ -590,6 +590,9 @@ async function breakScenario(scenarioId) {
       showSessionInfo();
       log('t-break', `💥 Break initiated: Scenario ${scenarioId} — ${SCENARIOS[scenarioId]?.name || ''} (session: ${currentSessionId})`);
       updateButtonStates();
+      // Immediately poll to update UI
+      pollHealth();
+      pollEvents();
     } else if (res.status === 409) {
       log('t-error', `Break rejected: ${d.error || 'Another scenario is already active'}`);
     } else {
@@ -626,6 +629,9 @@ async function fixScenario(scenarioId) {
       activeScenarioId = null;
       localStorage.removeItem('dashboardActiveScenario');
       updateButtonStates();
+      // Immediately poll to update UI
+      pollHealth();
+      pollEvents();
     } else {
       log('t-error', `Fix failed: ${d.error || 'Unknown error'}`);
     }
