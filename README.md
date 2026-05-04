@@ -112,7 +112,6 @@ Each scenario triggers a real infrastructure change, a CloudWatch alarm fires, a
 | **Node.js** | 18+ | CDK and Lambda bundling |
 | **npm** | — | Package management |
 | **AWS CLI** | v2 | AWS credential management |
-| **Docker** | — | PCAP MCP Server container build |
 | **AWS CDK** | — | `npm install -g aws-cdk` or use `npx` |
 | **AWS Account** | — | Permissions for VPC, EC2, RDS, Lambda, Cognito, Bedrock AgentCore |
 
