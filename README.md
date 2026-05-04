@@ -75,13 +75,13 @@ The demo deploys **9 CDK stacks** into your AWS account:
 
 | Stack | Purpose |
 |:------|:--------|
-| 🌐 **NetworkStack** | VPC, subnets, NAT Gateway, VPC endpoints (S3, Bedrock, Location Service, CloudWatch, SSM, STS), flow logs |
-| 💻 **ComputeStack** | EC2 instance (health checks + nginx), ALB, RDS MySQL, ELB access logs |
-| 🔄 **TrafficGenStack** | Lambda + EventBridge schedule generating traffic to the ALB |
+| 🌐 **NetworkStack** | VPC, subnets, NAT Gateway, 8 VPC endpoints, flow logs |
+| 💻 **ComputeStack** | EC2 (health checks + nginx), ALB, RDS MySQL, ELB access logs |
+| 🔄 **TrafficGenStack** | Lambda + EventBridge schedule for ALB traffic generation |
 | 🚨 **AlarmStack** | 6 CloudWatch alarms, SNS topic, webhook Lambda, Secrets Manager |
-| 🔐 **AuthStack** | Cognito User Pool, M2M app client, dashboard authentication |
+| 🔐 **AuthStack** | Cognito User Pool, M2M client, dashboard authentication |
 | 📦 **PcapMcpStack** | PCAP storage S3 bucket, AgentCore execution IAM role |
-| 🐳 **ImageStack** | ECR repository, CodeBuild project (builds PCAP MCP Server container + creates AgentCore Runtime) |
+| 🐳 **ImageStack** | ECR repo, CodeBuild (PCAP MCP Server container + AgentCore Runtime) |
 | 🤖 **DevOpsAgentStack** | Agent Space, IAM roles, account association |
 | 📊 **DashboardStack** | S3 + CloudFront frontend, API Gateway, Lambda handlers, DynamoDB |
 
