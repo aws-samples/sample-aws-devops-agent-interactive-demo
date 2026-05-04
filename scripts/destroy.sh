@@ -11,6 +11,12 @@ echo "  AWS DevOps Agent Interactive Demo — Destroying all stacks"
 echo "============================================================"
 echo ""
 
+# Ensure dependencies are installed
+if [ ! -d "node_modules" ]; then
+  echo "→ Installing dependencies..."
+  npm install --silent
+fi
+
 MAX_RETRIES=5
 RETRY=0
 

@@ -10,9 +10,7 @@ Deploy a fully functional environment with a single command. Break things on pur
 
 ## Demo Video
 
-https://github.com/user-attachments/assets/demo-video.mp4
-
-> **Note:** If the video doesn't play inline, download [docs/demo-video.mp4](docs/demo-video.mp4) to watch locally.
+https://github.com/user-attachments/assets/0f265e68-2cb7-4053-9308-86da53bd89f4
 
 ## Architecture
 
