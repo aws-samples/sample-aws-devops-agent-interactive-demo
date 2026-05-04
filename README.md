@@ -1,5 +1,12 @@
 # AWS DevOps Agent Interactive Demo
 
+[![License: MIT-0](https://img.shields.io/badge/License-MIT--0-yellow.svg)](LICENSE)
+[![AWS CDK](https://img.shields.io/badge/AWS_CDK-TypeScript-blue.svg)](https://aws.amazon.com/cdk/)
+[![AWS DevOps Agent](https://img.shields.io/badge/AWS-DevOps_Agent-orange.svg)](https://docs.aws.amazon.com/devopsagent/latest/userguide/what-is.html)
+[![Status](https://img.shields.io/badge/Status-Demo-teal.svg)](#)
+
+> **Note:** This is a demo application provided for learning and demonstration purposes only. It is not intended for production use.
+
 An interactive demo showcasing [AWS DevOps Agent](https://docs.aws.amazon.com/devopsagent/latest/userguide/what-is.html) automated incident investigation and resolution across 6 network break/fix scenarios.
 
 <p align="center">
