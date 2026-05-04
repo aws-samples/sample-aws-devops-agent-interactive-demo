@@ -52,17 +52,16 @@ Deploy a fully functional environment with a single command. Break things on pur
 
 ### How it works
 
-```
-┌──────────┐     ┌──────────┐     ┌──────────┐     ┌──────────────┐
-│ Dashboard │────▶│  Break   │────▶│CloudWatch│────▶│  SNS Topic   │
-│  (you)    │     │ scenario │     │  Alarm   │     │              │
-└──────────┘     └──────────┘     └──────────┘     └──────┬───────┘
-                                                          │
-                                                          ▼
-┌──────────┐     ┌──────────┐     ┌──────────┐     ┌──────────────┐
-│ Dashboard │◀────│  Fix     │◀────│ Findings │◀────│ DevOps Agent │
-│  (you)    │     │ scenario │     │          │     │ Investigation│
-└──────────┘     └──────────┘     └──────────┘     └──────────────┘
+```mermaid
+flowchart LR
+    A[🖥️ Dashboard] -->|Break| B[💥 Scenario]
+    B -->|Triggers| C[🚨 CloudWatch Alarm]
+    C -->|Notifies| D[📨 SNS Topic]
+    D -->|Invokes| E[λ Webhook Lambda]
+    E -->|Sends| F[🤖 DevOps Agent]
+    F -->|Investigates| G[🔍 Findings]
+    G -->|Displayed in| A
+    A -->|Fix| H[✅ Restore]
 ```
 
 ---
