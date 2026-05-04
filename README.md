@@ -168,8 +168,32 @@ Go to the **Configuration** tab on the dashboard. You'll see three sections:
 3. Paste both values into the webhook form on the dashboard and click **Save webhook**
 
 **S3 Bucket ARNs**
-- The dashboard displays the VPC Flow Logs, ELB Access Logs, and PCAP Storage bucket ARNs
-- The Agent Space IAM role has been pre-configured with `s3:GetObject` and `s3:ListBucket` permissions on these buckets
+
+DevOps Agent does not have S3 access by default. To investigate scenarios that rely on VPC Flow Logs (scenarios 1, 2), ELB Access Logs (scenario 5), and PCAP captures (scenario 6), the Agent Space IAM role needs explicit read permissions on the log buckets.
+
+This demo pre-configures the following inline policy on the Agent Space role:
+
+```json
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": ["s3:GetObject", "s3:ListBucket"],
+      "Resource": [
+        "arn:aws:s3:::vpc-flow-logs-<ACCOUNT_ID>-<REGION>",
+        "arn:aws:s3:::vpc-flow-logs-<ACCOUNT_ID>-<REGION>/AWSLogs/*",
+        "arn:aws:s3:::elb-access-logs-<ACCOUNT_ID>-<REGION>",
+        "arn:aws:s3:::elb-access-logs-<ACCOUNT_ID>-<REGION>/AWSLogs/*",
+        "arn:aws:s3:::pcap-analyzer-storage-<ACCOUNT_ID>",
+        "arn:aws:s3:::pcap-analyzer-storage-<ACCOUNT_ID>/*"
+      ]
+    }
+  ]
+}
+```
+
+The actual bucket ARNs for your deployment are displayed on the dashboard's **Configuration** tab. The deploy script also outputs the full IAM policy statement you can copy directly into the Agent Space console if needed.
 
 ### 5. Run scenarios
 
