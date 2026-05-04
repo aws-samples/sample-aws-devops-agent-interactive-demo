@@ -55,9 +55,9 @@ Deploy a fully functional environment with a single command. Break things on pur
 | Step | What happens |
 |:----:|:-------------|
 | **1** | You click **Break** on the dashboard, triggering a real infrastructure change |
-| **2** | A CloudWatch Alarm detects the failure and publishes to an SNS topic |
-| **3** | The SNS topic invokes a Lambda function that sends an HMAC-signed webhook to DevOps Agent |
-| **4** | DevOps Agent automatically starts an investigation, analyzing CloudTrail, VPC Flow Logs, ELB Access Logs, or PCAP data |
+| **2** | A [CloudWatch Alarm](https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/AlarmThatSendsEmail.html) detects the failure and publishes to an [SNS topic](https://docs.aws.amazon.com/sns/latest/dg/welcome.html) |
+| **3** | The SNS topic invokes a [Lambda function](https://docs.aws.amazon.com/lambda/latest/dg/welcome.html) that sends an HMAC-signed webhook to DevOps Agent |
+| **4** | DevOps Agent automatically starts an investigation, analyzing [CloudTrail](https://docs.aws.amazon.com/awscloudtrail/latest/userguide/cloudtrail-user-guide.html), [VPC Flow Logs](https://docs.aws.amazon.com/vpc/latest/userguide/flow-logs.html), [ELB Access Logs](https://docs.aws.amazon.com/elasticloadbalancing/latest/application/load-balancer-access-logs.html), or PCAP data |
 | **5** | Investigation status updates stream to the dashboard event log. Full findings are published in the DevOps Agent Operator Access dashboard |
 | **6** | You click **Fix** to restore the infrastructure to its original state |
 
@@ -75,15 +75,15 @@ The demo deploys **9 CDK stacks** into your AWS account:
 
 | Stack | Purpose |
 |:------|:--------|
-| 🌐 **NetworkStack** | VPC, subnets, NAT Gateway, 8 VPC endpoints, flow logs |
-| 💻 **ComputeStack** | EC2 (health checks + nginx), ALB, RDS MySQL, ELB access logs |
-| 🔄 **TrafficGenStack** | Lambda + EventBridge schedule for ALB traffic generation |
-| 🚨 **AlarmStack** | 6 CloudWatch alarms, SNS topic, webhook Lambda, Secrets Manager |
-| 🔐 **AuthStack** | Cognito User Pool, M2M client, dashboard authentication |
-| 📦 **PcapMcpStack** | PCAP storage S3 bucket, AgentCore execution IAM role |
-| 🐳 **ImageStack** | ECR repo, CodeBuild (PCAP MCP Server container + AgentCore Runtime) |
-| 🤖 **DevOpsAgentStack** | Agent Space, IAM roles, account association |
-| 📊 **DashboardStack** | S3 + CloudFront frontend, API Gateway, Lambda handlers, DynamoDB |
+| 🌐 **NetworkStack** | [VPC](https://docs.aws.amazon.com/vpc/latest/userguide/what-is-amazon-vpc.html), subnets, [NAT Gateway](https://docs.aws.amazon.com/vpc/latest/userguide/vpc-nat-gateway.html), 8 [VPC endpoints](https://docs.aws.amazon.com/vpc/latest/privatelink/vpc-endpoints.html), flow logs |
+| 💻 **ComputeStack** | [EC2](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/concepts.html) (health checks + nginx), [ALB](https://docs.aws.amazon.com/elasticloadbalancing/latest/application/introduction.html), [RDS MySQL](https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/Welcome.html), ELB access logs |
+| 🔄 **TrafficGenStack** | [Lambda](https://docs.aws.amazon.com/lambda/latest/dg/welcome.html) + [EventBridge](https://docs.aws.amazon.com/eventbridge/latest/userguide/eb-what-is.html) schedule for ALB traffic generation |
+| 🚨 **AlarmStack** | 6 [CloudWatch alarms](https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/AlarmThatSendsEmail.html), [SNS topic](https://docs.aws.amazon.com/sns/latest/dg/welcome.html), webhook Lambda, [Secrets Manager](https://docs.aws.amazon.com/secretsmanager/latest/userguide/intro.html) |
+| 🔐 **AuthStack** | [Cognito User Pool](https://docs.aws.amazon.com/cognito/latest/developerguide/cognito-user-identity-pools.html), M2M client, dashboard authentication |
+| 📦 **PcapMcpStack** | PCAP storage [S3 bucket](https://docs.aws.amazon.com/AmazonS3/latest/userguide/Welcome.html), [AgentCore](https://docs.aws.amazon.com/devopsagent/latest/userguide/configuring-capabilities-for-aws-devops-agent.html) execution IAM role |
+| 🐳 **ImageStack** | [ECR](https://docs.aws.amazon.com/AmazonECR/latest/userguide/what-is-ecr.html) repo, [CodeBuild](https://docs.aws.amazon.com/codebuild/latest/userguide/welcome.html) (PCAP MCP Server container + AgentCore Runtime) |
+| 🤖 **DevOpsAgentStack** | [Agent Space](https://docs.aws.amazon.com/devopsagent/latest/userguide/about-aws-devops-agent.html), IAM roles, account association |
+| 📊 **DashboardStack** | S3 + [CloudFront](https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/Introduction.html) frontend, [API Gateway](https://docs.aws.amazon.com/apigateway/latest/developerguide/welcome.html), Lambda handlers, [DynamoDB](https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/Introduction.html) |
 
 ---
 
@@ -91,12 +91,12 @@ The demo deploys **9 CDK stacks** into your AWS account:
 
 | # | Scenario | Break Action | Primary Evidence |
 |:-:|:---------|:-------------|:-----------------|
-| 1 | **Security Group Rule** | Revoke RDS inbound rule (port 3306) | CloudTrail + VPC Flow Logs |
-| 2 | **NAT Gateway Route** | Delete default route (0.0.0.0/0) | CloudTrail + VPC Flow Logs |
-| 3 | **VPC Endpoint Policy** | Deny S3 Gateway Endpoint policy | CloudTrail |
-| 4 | **Bedrock Endpoint Subnets** | Remove Interface Endpoint subnets | CloudTrail |
-| 5 | **ALB Backend Failure** | Stop backend application (502 Bad Gateway) | ELB Access Logs |
-| 6 | **TLS/SNI Mismatch + PCAP** | DNS poisoning of Location Service endpoint | PCAP MCP Server |
+| 1 | **Security Group Rule** | Revoke RDS inbound rule (port 3306) | [CloudTrail](https://docs.aws.amazon.com/awscloudtrail/latest/userguide/cloudtrail-user-guide.html) + [VPC Flow Logs](https://docs.aws.amazon.com/vpc/latest/userguide/flow-logs.html) |
+| 2 | **NAT Gateway Route** | Delete default route (0.0.0.0/0) | [CloudTrail](https://docs.aws.amazon.com/awscloudtrail/latest/userguide/cloudtrail-user-guide.html) + [VPC Flow Logs](https://docs.aws.amazon.com/vpc/latest/userguide/flow-logs.html) |
+| 3 | **VPC Endpoint Policy** | Deny S3 Gateway Endpoint policy | [CloudTrail](https://docs.aws.amazon.com/awscloudtrail/latest/userguide/cloudtrail-user-guide.html) |
+| 4 | **Bedrock Endpoint Subnets** | Remove Interface Endpoint subnets | [CloudTrail](https://docs.aws.amazon.com/awscloudtrail/latest/userguide/cloudtrail-user-guide.html) |
+| 5 | **ALB Backend Failure** | Stop backend application (502 Bad Gateway) | [ELB Access Logs](https://docs.aws.amazon.com/elasticloadbalancing/latest/application/load-balancer-access-logs.html) |
+| 6 | **TLS/SNI Mismatch + PCAP** | DNS poisoning of Location Service endpoint | [PCAP MCP Server](codebuild-scripts/README.md) |
 
 Each scenario triggers a real infrastructure change, a CloudWatch alarm fires, a webhook notifies DevOps Agent, and an automated investigation begins.
 
@@ -106,11 +106,11 @@ Each scenario triggers a real infrastructure change, a CloudWatch alarm fires, a
 
 | Requirement | Version | Purpose |
 |:------------|:--------|:--------|
-| **Node.js** | 18+ | CDK and Lambda bundling |
+| **[Node.js](https://nodejs.org/)** | 18+ | CDK and Lambda bundling |
 | **npm** | — | Package management |
-| **AWS CLI** | v2 | AWS credential management |
-| **AWS CDK** | — | `npm install -g aws-cdk` or use `npx` |
-| **AWS Account** | — | Permissions for VPC, EC2, RDS, Lambda, Cognito, Bedrock AgentCore |
+| **[AWS CLI](https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html)** | v2 | AWS credential management |
+| **[AWS CDK](https://docs.aws.amazon.com/cdk/v2/guide/getting_started.html)** | — | `npm install -g aws-cdk` or use `npx` |
+| **AWS Account** | — | Permissions for VPC, EC2, RDS, Lambda, Cognito, [Bedrock AgentCore](https://docs.aws.amazon.com/devopsagent/latest/userguide/getting-started-with-aws-devops-agent.html) |
 
 ---
 
@@ -151,7 +151,7 @@ After deployment completes, you'll see output like this:
 
 ### 3. Log in to the dashboard
 
-Open the **Dashboard URL** from the deployment output and sign in with the **Login** credentials shown. The credentials are auto-generated and stored in AWS Secrets Manager.
+Open the **Dashboard URL** from the deployment output and sign in with the **Login** credentials shown. The credentials are auto-generated and stored in [AWS Secrets Manager](https://docs.aws.amazon.com/secretsmanager/latest/userguide/intro.html).
 
 ### 4. Configure DevOps Agent
 
@@ -312,7 +312,7 @@ The destroy script retries up to 5 times to handle dependency ordering and event
 - 🔐 All API Gateway endpoints protected by Cognito authentication
 - 🎯 IAM policies scoped to specific resources
 - 🔑 Secrets stored in AWS Secrets Manager
-- 🛡️ IMDSv2 enforced on EC2 instances
+- 🛡️ [IMDSv2](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/configuring-instance-metadata-service.html) enforced on EC2 instances
 - 🔒 RDS and EBS encryption enabled
 - 🌐 CORS scoped to CloudFront distribution domain
 - ✅ Security review completed with 0 open findings
