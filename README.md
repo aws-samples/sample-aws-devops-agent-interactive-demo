@@ -2,7 +2,17 @@
 
 An interactive demo showcasing [AWS DevOps Agent](https://docs.aws.amazon.com/devopsagent/latest/userguide/what-is.html) automated incident investigation and resolution across 6 network break/fix scenarios.
 
+<p align="center">
+  <img src="docs/demo-preview.gif" alt="AWS DevOps Agent Interactive Demo" width="800">
+</p>
+
 Deploy a fully functional environment with a single command. Break things on purpose, watch DevOps Agent investigate using CloudTrail, VPC Flow Logs, ELB Access Logs, and PCAP analysis, then fix them.
+
+## Demo Video
+
+https://github.com/user-attachments/assets/demo-video.mp4
+
+> **Note:** If the video doesn't play inline, download [docs/demo-video.mp4](docs/demo-video.mp4) to watch locally.
 
 ## Architecture
 
