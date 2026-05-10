@@ -18,6 +18,10 @@
 
 > **Note:** This is a demo application provided for learning and demonstration purposes only. It is not intended for production use.
 
+<p align="center">
+  <img src="cdk/docs/demo-preview.gif" alt="AWS DevOps Agent Interactive Demo" width="800">
+</p>
+
 ---
 
 ## Table of Contents
