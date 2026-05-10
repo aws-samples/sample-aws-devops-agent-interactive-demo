@@ -17,7 +17,7 @@
       <input type="password" id="loginPassword" placeholder="Password" onkeydown="if(event.key==='Enter')handleLogin()" style="width:100%;padding:10px 12px;margin-bottom:10px;border:1px solid var(--color-border-input);border-radius:6px;background:var(--color-background-input);color:var(--color-text-body);font-size:14px;box-sizing:border-box;">
       <div id="loginError" style="color:#d91515;font-size:12px;min-height:18px;margin-bottom:8px;"></div>
       <button id="loginBtn" onclick="handleLogin()" style="width:100%;padding:10px;background:var(--color-background-button-primary);color:#fff;border:none;border-radius:6px;font-size:14px;cursor:pointer;font-weight:500;">Sign in</button>
-      <p style="margin:12px 0 0;font-size:11px;color:var(--color-text-secondary);">Credentials in Secrets Manager: <code>net-devops-dashboard-admin</code></p>
+      <p style="margin:12px 0 0;font-size:11px;color:var(--color-text-secondary);">Credentials in Secrets Manager: <code>devops-dashboard-admin</code></p>
     </div>
   </div>
 
@@ -35,6 +35,7 @@
     <div class="tab-nav">
       <button class="tab-btn active" onclick="switchTab('welcome')" id="tabBtnWelcome">Welcome</button>
       <button class="tab-btn" onclick="switchTab('config')" id="tabBtnConfig">Configuration</button>
+      <button class="tab-btn" onclick="switchTab('explain')" id="tabBtnExplain">Scenarios Explanation</button>
       <button class="tab-btn" onclick="switchTab('scenarios')" id="tabBtnScenarios">Networking Scenarios</button>
     </div>
     <div class="tab-content active" id="tabWelcome">
@@ -48,33 +49,140 @@
           <div class="welcome-card"><div class="welcome-card-icon">🔍</div><h3>Automated Investigation</h3><p>CloudWatch alarms trigger webhooks to DevOps Agent, which automatically investigates using AWS APIs, logs, and MCP tools.</p></div>
           <div class="welcome-card"><div class="welcome-card-icon">📡</div><h3>PCAP Analysis via MCP</h3><p>Scenario 6 captures network packets and analyzes TLS handshakes, SNI mismatches, and certificate details using a custom PCAP MCP server.</p></div>
         </div>
-        <div class="welcome-steps"><h3>Getting Started</h3><ol><li>Go to the <strong>Configuration</strong> tab to register the MCP server and configure the webhook</li><li>Go to the <strong>Networking Scenarios</strong> tab to trigger break/fix scenarios</li><li>Watch the investigation event stream as DevOps Agent diagnoses the issue</li></ol></div>
+        <div class="welcome-steps"><h3>Getting Started</h3><ol><li>Go to the <strong>Configuration</strong> tab to register the MCP server, configure the webhook, and review S3 bucket access</li><li>Review the <strong>Scenarios Explanation</strong> tab to understand each scenario's alarm, traffic path, and investigation source</li><li>Go to the <strong>Networking Scenarios</strong> tab to trigger break/fix scenarios</li><li>Watch the investigation event stream as DevOps Agent diagnoses the issue</li></ol></div>
         <div class="welcome-table-section"><h3>Documentation</h3><div style="display:grid;grid-template-columns:1fr 1fr;gap:var(--space-s) var(--space-xl);font-size:13px;"><a href="https://docs.aws.amazon.com/devopsagent/latest/userguide/what-is.html" target="_blank" style="color:var(--color-text-interactive);text-decoration:none;">What is AWS DevOps Agent</a><a href="https://docs.aws.amazon.com/devopsagent/latest/userguide/getting-started-with-aws-devops-agent.html" target="_blank" style="color:var(--color-text-interactive);text-decoration:none;">Getting Started Guide</a><a href="https://docs.aws.amazon.com/devopsagent/latest/userguide/working-with-devops-agent.html" target="_blank" style="color:var(--color-text-interactive);text-decoration:none;">Working with DevOps Agent</a><a href="https://docs.aws.amazon.com/devopsagent/latest/userguide/configuring-capabilities-for-aws-devops-agent.html" target="_blank" style="color:var(--color-text-interactive);text-decoration:none;">Configuring Capabilities</a><a href="https://docs.aws.amazon.com/devopsagent/latest/userguide/about-aws-devops-agent.html" target="_blank" style="color:var(--color-text-interactive);text-decoration:none;">About DevOps Agent</a><a href="https://docs.aws.amazon.com/devopsagent/latest/APIReference/Welcome.html" target="_blank" style="color:var(--color-text-interactive);text-decoration:none;">API Reference</a></div></div>
-        <div class="welcome-table-section"><h3>Data Sources by Scenario</h3><table class="welcome-table"><thead><tr><th>Scenario</th><th>Break</th><th>Primary Evidence</th></tr></thead><tbody><tr><td>1. Security Group Rule</td><td>Revoke RDS inbound rule</td><td>CloudTrail + VPC Flow Logs</td></tr><tr><td>2. NAT Gateway Route</td><td>Delete default route</td><td>CloudTrail + VPC Flow Logs</td></tr><tr><td>3. VPC Endpoint Policy</td><td>Deny S3 endpoint policy</td><td>CloudTrail</td></tr><tr><td>4. Bedrock Endpoint</td><td>Remove endpoint subnets</td><td>CloudTrail</td></tr><tr><td>5. ALB Backend Failure</td><td>Stop backend application</td><td>ELB Access Logs</td></tr><tr><td>6. TLS/SNI Mismatch</td><td>DNS poisoning of CloudWatch endpoint</td><td>PCAP MCP Server</td></tr></tbody></table></div>
       </div>
     </div>
     <div class="tab-content" id="tabConfig">
-      <div style="max-width:900px;margin:0 auto;">
-      <!-- Box 1: MCP Server Configuration -->
+      <div class="config-layout">
+      <!-- Left sidebar navigation -->
+      <div class="config-sidebar">
+        <button class="subtab-btn active" onclick="switchConfigSubtab('mcp')" id="subtabBtnMcp"><span class="subtab-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12 2L3 7v10l9 5 9-5V7l-9-5z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="1.5"/><path d="M12 2v7M12 15v7M3 7l6.5 3.5M14.5 13.5L21 17M21 7l-6.5 3.5M9.5 13.5L3 17" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg></span>MCP Server</button>
+        <button class="subtab-btn" onclick="switchConfigSubtab('webhook')" id="subtabBtnWebhook"><span class="subtab-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M15.5 3.5c2.5 0 4.5 2 4.5 4.5 0 2.5-2 4.5-4.5 4.5h-1l-2 4h-3l2-4H8.5C6 12.5 4 10.5 4 8c0-2.5 2-4.5 4.5-4.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><path d="M12 12.5v5.5c0 1.7-1.3 3-3 3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><circle cx="9" cy="21" r="1.5" stroke="currentColor" stroke-width="1.5"/></svg></span>Webhook</button>
+        <button class="subtab-btn" onclick="switchConfigSubtab('s3')" id="subtabBtnS3"><span class="subtab-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><ellipse cx="12" cy="5" rx="8" ry="3" stroke="currentColor" stroke-width="1.5"/><path d="M4 5v14c0 1.66 3.58 3 8 3s8-1.34 8-3V5" stroke="currentColor" stroke-width="1.5"/><path d="M4 12c0 1.66 3.58 3 8 3s8-1.34 8-3" stroke="currentColor" stroke-width="1.5"/></svg></span>S3 Buckets</button>
+      </div>
+
+      <!-- Right content area -->
+      <div class="config-main">
+
+      <!-- Sub-tab: MCP Server -->
+      <div class="subtab-content active" id="subtabMcp">
       <div class="container mcp-config"><div class="container-header"><h2>MCP server configuration</h2></div><div class="container-body"><div id="agentSpaceLink" style="margin-bottom:16px;font-size:12px;"></div><div class="config-section" style="margin-top:0;padding-top:0;border-top:none;"><div class="config-section-title">PCAP MCP Server (AgentCore Runtime)</div><p class="config-section-note" style="margin-top:4px;font-size:11px;color:var(--color-text-muted);">Used by: Networking Scenarios</p><div class="endpoint-row"><span class="endpoint-label">MCP Name</span><code class="endpoint-url">PCAPmcp</code><button class="btn-copy" onclick="copyText('PCAPmcp')">Copy</button></div><hr class="config-divider"><div class="endpoint-row"><span class="endpoint-label">Endpoint URL</span><code class="endpoint-url" id="mcpEndpointUrl">Loading...</code><button class="btn-copy" onclick="copyValue('mcpEndpointUrl')">Copy</button></div><hr class="config-divider"><div class="endpoint-row"><span class="endpoint-label">Authorization Flow</span><code class="endpoint-url" style="color:var(--color-text-interactive);">OAuth Client Credentials</code></div><hr class="config-divider"><div class="endpoint-row"><span class="endpoint-label">OAuth Client ID</span><code class="endpoint-url" id="mcpClientId">Loading...</code><button class="btn-copy" onclick="copyValue('mcpClientId')">Copy</button></div><hr class="config-divider"><div class="endpoint-row"><span class="endpoint-label">Client Secret</span><code class="endpoint-url" id="mcpClientSecret">Loading...</code><button class="btn-copy" onclick="copyValue('mcpClientSecret')">Copy</button></div><hr class="config-divider"><div class="endpoint-row"><span class="endpoint-label">Exchange URL</span><code class="endpoint-url" id="mcpTokenEndpoint">Loading...</code><button class="btn-copy" onclick="copyValue('mcpTokenEndpoint')">Copy</button></div></div></div></div>
+      </div>
 
-      <!-- Box 2: Webhook Configuration -->
+      <!-- Sub-tab: Webhook -->
+      <div class="subtab-content" id="subtabWebhook">
       <div class="container"><div class="container-header"><h2>Webhook configuration</h2></div><div class="container-body"><p class="config-section-note">When a CloudWatch alarm fires, the webhook Lambda sends an HMAC-signed notification to DevOps Agent, which automatically starts an investigation. The diagram below shows the integration flow.</p><div style="text-align:center;margin:var(--space-l) 0;"><img src="webhook-integration-architecture.png" alt="Webhook Integration Architecture" style="max-width:70%;height:auto;border-radius:var(--border-radius);border:1px solid var(--color-border-divider);"></div><p class="config-section-note" id="webhookInstructions">Go to the <a href="#" id="webhookAgentSpaceLink" target="_blank" style="color:var(--color-text-interactive);">Agent Space console</a>, navigate to <strong>Capabilities → Webhooks → Add webhook</strong>, and follow the instructions to generate a webhook URL and HMAC secret. Paste them below.</p><div id="webhookStatus" style="font-size:12px;color:var(--color-text-secondary);margin-bottom:8px;"></div><div class="webhook-form"><input type="text" id="webhookUrlInput" class="form-input" placeholder="Webhook URL from DevOps Agent console"><input type="text" id="hmacSecretInput" class="form-input" placeholder="HMAC Secret from DevOps Agent console"><button class="btn btn-primary" id="webhookConfigBtn" onclick="configureWebhook()" style="align-self:flex-start;">Save webhook</button></div></div></div>
+      </div>
 
-      <!-- Box 3: S3 Bucket ARNs -->
+      <!-- Sub-tab: S3 Buckets -->
+      <div class="subtab-content" id="subtabS3">
       <div class="container"><div class="container-header"><h2>S3 bucket ARNs for investigation</h2></div><div class="container-body"><p class="config-section-note">DevOps Agent does not have S3 access by default. The Agent Space IAM role has been configured with explicit <code>s3:GetObject</code> and <code>s3:ListBucket</code> permissions on these buckets.</p><div class="endpoint-row"><span class="endpoint-label">VPC Flow Logs</span><code class="endpoint-url" id="vpcFlowLogBucket">Loading...</code><button class="btn-copy" onclick="copyValue('vpcFlowLogBucket')">Copy</button></div><hr class="config-divider"><div class="endpoint-row"><span class="endpoint-label">ELB Access Logs</span><code class="endpoint-url" id="elbAccessLogBucket">Loading...</code><button class="btn-copy" onclick="copyValue('elbAccessLogBucket')">Copy</button></div><hr class="config-divider"><div class="endpoint-row"><span class="endpoint-label">PCAP Storage</span><code class="endpoint-url" id="pcapStorageBucket">Loading...</code><button class="btn-copy" onclick="copyValue('pcapStorageBucket')">Copy</button></div></div></div>
+      </div>
+
+      </div><!-- /config-main -->
+      </div><!-- /config-layout -->
+    </div>
+    <!-- Scenarios Explanation Tab -->
+    <div class="tab-content" id="tabExplain">
+      <div style="width:100%;margin:0 auto;">
+        <div class="container"><div class="container-header"><h2>Scenarios Explanation</h2></div><div class="container-body">
+          <p class="config-section-note" style="margin-bottom:var(--space-l);">The health check app on EC2 monitors 5 connectivity paths. When a break is triggered, the corresponding check fails, publishes a CloudWatch metric, and the alarm fires within 1–2 minutes — triggering DevOps Agent via webhook.</p>
+
+          <table class="welcome-table" style="font-size:clamp(11px,0.9vw,18px);">
+            <thead><tr><th>#</th><th>Scenario</th><th>What Breaks</th><th>Traffic Path</th><th>Check Interval</th><th>Alarm</th><th>Alarm Type</th><th>Investigation Source</th></tr></thead>
+            <tbody>
+              <tr>
+                <td>1</td>
+                <td><strong>Security Group Rule</strong></td>
+                <td>Revokes inbound MySQL (3306) on RDS SG</td>
+                <td>EC2 → <span style="color:var(--color-text-status-error);">✗ RDS SG</span> → RDS</td>
+                <td>5s</td>
+                <td><code>alarm-1</code><br><span style="color:var(--color-text-muted);font-size:clamp(10px,0.75vw,16px);">ConnectivityFailure (rds) &gt; 0 for 60s</span></td>
+                <td>Custom</td>
+                <td>CloudTrail: <code>RevokeSecurityGroupIngress</code></td>
+              </tr>
+              <tr>
+                <td>2</td>
+                <td><strong>NAT Gateway Route</strong></td>
+                <td>Deletes 0.0.0.0/0 route from private RT</td>
+                <td>EC2 → <span style="color:var(--color-text-status-error);">✗ No route</span> → NAT GW</td>
+                <td>15s</td>
+                <td><code>alarm-2</code><br><span style="color:var(--color-text-muted);font-size:clamp(10px,0.75vw,16px);">ConnectivityFailure (nat) &gt; 0 for 60s</span></td>
+                <td>Custom</td>
+                <td>CloudTrail: <code>DeleteRoute</code></td>
+              </tr>
+              <tr>
+                <td>3</td>
+                <td><strong>VPC Endpoint Policy</strong></td>
+                <td>Sets S3 Gateway Endpoint policy to Deny *</td>
+                <td>EC2 → S3 Endpoint → <span style="color:var(--color-text-status-error);">✗ Deny</span></td>
+                <td>10s</td>
+                <td><code>alarm-3</code><br><span style="color:var(--color-text-muted);font-size:clamp(10px,0.75vw,16px);">ConnectivityFailure (s3) &gt; 0 for 60s</span></td>
+                <td>Custom</td>
+                <td>CloudTrail: <code>ModifyVpcEndpoint</code></td>
+              </tr>
+              <tr>
+                <td>4</td>
+                <td><strong>Bedrock Endpoint</strong></td>
+                <td>Removes subnet associations from Interface Endpoint</td>
+                <td>EC2 → <span style="color:var(--color-text-status-error);">✗ No ENI</span> → Bedrock</td>
+                <td>10s</td>
+                <td><code>alarm-4</code><br><span style="color:var(--color-text-muted);font-size:clamp(10px,0.75vw,16px);">ConnectivityFailure (bedrock) &gt; 0 for 60s</span></td>
+                <td>Custom</td>
+                <td>CloudTrail: <code>ModifyVpcEndpoint</code></td>
+              </tr>
+              <tr>
+                <td>5</td>
+                <td><strong>ALB Backend Failure</strong></td>
+                <td>Stops nginx + app on EC2 (opaque script)</td>
+                <td>Users → ALB → <span style="color:var(--color-text-status-error);">✗ 502</span> → EC2 (down)</td>
+                <td>30s (traffic gen)</td>
+                <td><code>alarm-5</code><br><span style="color:var(--color-text-muted);font-size:clamp(10px,0.75vw,16px);">HTTPCode_ELB_5XX_Count &gt; 0 for 60s</span></td>
+                <td>Native (ALB)</td>
+                <td>ELB Access Logs in S3</td>
+              </tr>
+              <tr>
+                <td>6</td>
+                <td><strong>TLS/SNI Mismatch + PCAP</strong></td>
+                <td>Poisons /etc/hosts → TLS to wrong IP (opaque script)</td>
+                <td>EC2 → DNS → <span style="color:var(--color-text-status-error);">✗ TLS mismatch</span></td>
+                <td>10s</td>
+                <td><code>alarm-6</code><br><span style="color:var(--color-text-muted);font-size:clamp(10px,0.75vw,16px);">ConnectivityFailure (outbound-https) &gt; 0 for 60s</span></td>
+                <td>Custom</td>
+                <td>PCAP MCP Server (baseline vs incident)</td>
+              </tr>
+            </tbody>
+          </table>
+
+          <!-- Alarm Pipeline -->
+          <div style="margin-top:var(--space-xl);padding-top:var(--space-l);border-top:1px solid var(--color-border-divider);">
+            <h3 style="font-size:clamp(14px,1.1vw,24px);color:var(--color-text-heading);margin-bottom:var(--space-m);">Alarm Pipeline</h3>
+            <div style="font-family:var(--font-family-mono);font-size:clamp(11px,0.9vw,18px);color:var(--color-text-body);background:var(--color-background-layout);padding:var(--space-l);border-radius:var(--border-radius);line-height:2.2;">
+              Health Check Fails → PutMetricData (DevOpsDemo namespace)<br>
+              → CloudWatch evaluates (1 datapoint &gt; 0 in 60s) → ALARM<br>
+              → SNS Topic → Webhook Lambda<br>
+              → Read HMAC secret from Secrets Manager<br>
+              → POST signed payload to DevOps Agent webhook<br>
+              → Investigation starts (~1–3 min from break)
+            </div>
+            <p style="font-size:clamp(10px,0.75vw,16px);color:var(--color-text-muted);margin-top:var(--space-s);">All alarms use TreatMissingData=notBreaching — they auto-recover to OK after fix when metric data stops.</p>
+          </div>
+
+        </div></div>
       </div>
     </div>
     <div class="tab-content" id="tabScenarios">
       <div class="scenarios-layout">
         <!-- LEFT COLUMN: Topology diagram -->
         <div class="scenarios-left">
-          <div class="container topology-container">
+          <div class="container topology-container" id="topologyContainer">
         <div class="container-header">
           <h2>Network topology</h2>
           <div style="display:flex;gap:16px;align-items:center;">
             <span style="display:flex;align-items:center;gap:5px;font-size:clamp(10px,0.7vw,14px);color:var(--color-text-secondary);"><svg width="28" height="8"><line x1="0" y1="4" x2="28" y2="4" stroke="#4ade80" stroke-width="2.5" stroke-linecap="round" stroke-dasharray="4 5"><animate attributeName="stroke-dashoffset" from="18" to="0" dur="3.2s" repeatCount="indefinite"/></line></svg>Healthy</span>
             <span style="display:flex;align-items:center;gap:5px;font-size:clamp(10px,0.7vw,14px);color:var(--color-text-secondary);"><svg width="28" height="8"><line x1="0" y1="4" x2="28" y2="4" stroke="#f87171" stroke-width="2.5" stroke-linecap="round" stroke-dasharray="4 5" opacity="0.7"><animate attributeName="opacity" values="0.8;0.25;0.8" dur="0.7s" repeatCount="indefinite"/></line></svg>Broken</span>
+            <button class="btn-fullscreen" id="fullscreenBtn" onclick="toggleTopologyFullscreen()" title="Toggle fullscreen">⛶</button>
           </div>
         </div>
         <div class="container-body" style="padding:20px 16px;">
@@ -180,8 +288,8 @@
             <path id="flow-s3" d="M400,475 C440,450 490,420 514,405" class="topo-flow topo-flow-healthy"/>
             <circle class="topo-dot topo-dot-healthy" id="dot-s3" r="3.5" opacity="0"><animateMotion dur="2.8s" repeatCount="indefinite" fill="freeze"><mpath href="#path-s3"/></animateMotion></circle>
             <!-- Gateway Endpoint → S3 service -->
-            <path d="M626,400 L808,400" class="topo-path topo-path-healthy" opacity="0.3"/>
-            <path d="M626,400 L808,400" class="topo-flow topo-flow-healthy" opacity="0.2"/>
+            <path id="path-s3b" d="M626,400 L808,400" class="topo-path topo-path-healthy" opacity="0.3"/>
+            <path id="flow-s3b" d="M626,400 L808,400" class="topo-flow topo-flow-healthy" opacity="0.2"/>
             <circle id="break-bg-s3" class="topo-break-circle" cx="470" cy="425" r="11"/>
             <g id="break-x-s3" class="topo-break-x"><line x1="464" y1="419" x2="476" y2="431"/><line x1="476" y1="419" x2="464" y2="431"/></g>
             <rect class="topo-scenario-badge-bg" id="badge-bg-s3" x="465" y="398" width="20" height="20" rx="10" ry="10" fill="#037f0c"/>
@@ -192,8 +300,8 @@
             <path id="flow-s4" d="M400,485 L514,490" class="topo-flow topo-flow-healthy"/>
             <circle class="topo-dot topo-dot-healthy" id="dot-s4" r="3.5" opacity="0"><animateMotion dur="2.8s" repeatCount="indefinite" fill="freeze"><mpath href="#path-s4"/></animateMotion></circle>
             <!-- Interface Endpoint → Bedrock service -->
-            <path d="M626,490 L808,490" class="topo-path topo-path-healthy" opacity="0.3"/>
-            <path d="M626,490 L808,490" class="topo-flow topo-flow-healthy" opacity="0.2"/>
+            <path id="path-s4b" d="M626,490 L808,490" class="topo-path topo-path-healthy" opacity="0.3"/>
+            <path id="flow-s4b" d="M626,490 L808,490" class="topo-flow topo-flow-healthy" opacity="0.2"/>
             <circle id="break-bg-s4" class="topo-break-circle" cx="470" cy="487" r="11"/>
             <g id="break-x-s4" class="topo-break-x"><line x1="464" y1="481" x2="476" y2="493"/><line x1="476" y1="481" x2="464" y2="493"/></g>
             <rect class="topo-scenario-badge-bg" id="badge-bg-s4" x="465" y="464" width="20" height="20" rx="10" ry="10" fill="#037f0c"/>

@@ -24,11 +24,11 @@ describe('AlarmStack', () => {
       template.resourceCountIs('AWS::CloudWatch::Alarm', 6);
     });
 
-    test('4 custom metric alarms use namespace NetworkDevOpsDemo and metric ConnectivityFailure', () => {
+    test('4 custom metric alarms use namespace DevOpsDemo and metric ConnectivityFailure', () => {
       const checkTypes = ['rds', 'nat', 's3', 'bedrock'];
       for (const checkType of checkTypes) {
         template.hasResourceProperties('AWS::CloudWatch::Alarm', {
-          Namespace: 'NetworkDevOpsDemo',
+          Namespace: 'DevOpsDemo',
           MetricName: 'ConnectivityFailure',
           Dimensions: Match.arrayWith([
             Match.objectLike({
@@ -61,9 +61,9 @@ describe('AlarmStack', () => {
       });
     });
 
-    test('outbound-https alarm uses namespace NetworkDevOpsDemo and metric ConnectivityFailure', () => {
+    test('outbound-https alarm uses namespace DevOpsDemo and metric ConnectivityFailure', () => {
       template.hasResourceProperties('AWS::CloudWatch::Alarm', {
-        Namespace: 'NetworkDevOpsDemo',
+        Namespace: 'DevOpsDemo',
         MetricName: 'ConnectivityFailure',
         Dimensions: Match.arrayWith([
           Match.objectLike({

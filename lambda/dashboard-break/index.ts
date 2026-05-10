@@ -32,7 +32,7 @@ const corsHeaders = {
 async function getOpsClients() {
   const creds = await sts.send(new AssumeRoleCommand({
     RoleArn: NETWORK_OPS_ROLE_ARN,
-    RoleSessionName: 'ops-session',
+    RoleSessionName: 'maint-session',
     DurationSeconds: 900,
   }));
   const credentials = {
@@ -80,86 +80,43 @@ async function breakScenario4(ec2: EC2Client): Promise<string> {
 }
 
 /**
- * Scenario 5: Stop the backend application on EC2 via SSM.
- * ALB returns 502 Bad Gateway. ELB Access Logs show the errors.
+ * Scenario 5: Backend failure via pre-installed script.
+ * ALB returns 502 Bad Gateway. DevOps Agent must rely on ELB Access Logs in S3.
  */
 async function breakScenario5(ssm: SSMClient): Promise<string> {
   await ssm.send(new SendCommandCommand({
     InstanceIds: [process.env.EC2_INSTANCE_ID!],
     DocumentName: 'AWS-RunShellScript',
-    Parameters: { commands: [
-      'sudo systemctl mask health-check-app',
-      'sudo systemctl stop health-check-app',
-      'sudo systemctl mask nginx',
-      'sudo systemctl stop nginx',
-    ] },
-    Comment: 'Service maintenance',
+    Parameters: { commands: ['sudo /opt/scripts/s5b.sh'] },
+    TimeoutSeconds: 30,
   }));
-  return 'Backend application stopped';
+  return 'Maintenance task executed';
 }
 
 /**
  * Scenario 6: TLS Certificate/SNI Mismatch + PCAP Capture.
- * Poisons /etc/hosts to redirect the CloudWatch monitoring endpoint to the local
- * nginx (which has a cert for server.internal.lab). The health-check-app's TLS
- * verification check detects the cert mismatch and publishes the metric naturally.
- * PCAP captures the TLS handshake failures for MCP analysis.
+ * Executes a pre-installed script on EC2 that captures baseline and incident
+ * traffic. The script content is not visible in CloudTrail — DevOps Agent
+ * must rely on PCAP analysis to identify the root cause.
  */
 async function breakScenario6(ssm: SSMClient, sessionId: string): Promise<string> {
-  const pcapBucketArn = process.env.PCAP_STORAGE_BUCKET_ARN!;
-  const pcapBucket = pcapBucketArn.split(':::')[1];
-  const region = process.env.AWS_REGION || 'us-east-1';
-  const poisonDomain = `maps.geo.${region}.amazonaws.com`;
-
-  const script = [
-    '#!/bin/bash',
-    '',
-    'MY_IP=$(hostname -I | awk \'{print $1}\')',
-    '',
-    '# Start packet capture',
-    `sudo timeout 45 tcpdump -i any port 443 -w /tmp/capture-${sessionId}.pcap &`,
-    'TCPDUMP_PID=$!',
-    'sleep 2',
-    '',
-    '# Redirect Location Service endpoint to local server via hosts file (DNS poisoning)',
-    'sudo cp /etc/hosts /etc/hosts.bak',
-    `echo "$MY_IP ${poisonDomain}" | sudo tee -a /etc/hosts > /dev/null`,
-    '',
-    '# Generate HTTPS traffic to the poisoned domain — TLS will fail due to cert mismatch',
-    `curl -s --max-time 5 https://${poisonDomain}:443/ 2>&1 || true`,
-    `curl -s --max-time 5 https://${poisonDomain}:443/ 2>&1 || true`,
-    `curl -s --max-time 5 https://${poisonDomain}:443/ 2>&1 || true`,
-    'sleep 10',
-    '',
-    '# Stop capture and upload',
-    'sudo kill $TCPDUMP_PID 2>/dev/null || true',
-    'wait $TCPDUMP_PID 2>/dev/null || true',
-    'sleep 1',
-    `aws s3 cp /tmp/capture-${sessionId}.pcap s3://${pcapBucket}/captures/${sessionId}.pcap`,
-    `rm -f /tmp/capture-${sessionId}.pcap`,
-  ].join('\n');
-
   await ssm.send(new SendCommandCommand({
     InstanceIds: [process.env.EC2_INSTANCE_ID!],
     DocumentName: 'AWS-RunShellScript',
-    Parameters: { commands: [script] },
-    TimeoutSeconds: 120,
-    Comment: `Diagnostics (${sessionId})`,
+    Parameters: { commands: [`sudo /opt/scripts/s6b.sh ${sessionId}`] },
+    TimeoutSeconds: 300,
   }));
 
-  // No PutMetricData injection — the health-check-app's checkCloudWatchTls
-  // will detect the TLS cert mismatch and publish the metric naturally
-
-  return `PCAP capture initiated. PCAP → s3://${pcapBucket}/captures/${sessionId}.pcap`;
+  return 'Network diagnostics initiated';
 }
 
 export const handler = async (event: any) => {
   try {
     const body = JSON.parse(event.body || '{}');
-    const scenarioId = body.scenarioId;
+    const scenarioId = body.id;
 
     if (!scenarioId || scenarioId < 1 || scenarioId > 6) {
-      return { statusCode: 400, headers: corsHeaders, body: JSON.stringify({ error: 'scenarioId (1-6) is required' }) };
+      return { statusCode: 400, headers: corsHeaders, body: JSON.stringify({ error: 'id (1-6) is required' }) };
     }
 
     const existing = await ddb.send(new GetItemCommand({
@@ -197,7 +154,7 @@ export const handler = async (event: any) => {
 
     await ddb.send(new PutItemCommand({
       TableName: TABLE_NAME,
-      Item: { sessionId: { S: sessionId }, timestamp: { S: new Date().toISOString() }, eventType: { S: 'scenario_broken' }, data: { S: JSON.stringify({ scenarioId, message: breakMessage }) }, ttl: { N: String(ttl) } },
+      Item: { sessionId: { S: sessionId }, timestamp: { S: new Date().toISOString() }, eventType: { S: 'scenario_active' }, data: { S: JSON.stringify({ scenarioId, message: breakMessage }) }, ttl: { N: String(ttl) } },
     }));
 
     return { statusCode: 200, headers: corsHeaders, body: JSON.stringify({ sessionId, scenarioId, message: `Scenario ${scenarioId} break initiated`, details: breakMessage }) };

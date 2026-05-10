@@ -110,10 +110,10 @@ export class AuthStack extends cdk.Stack {
     // Auto-provision dashboard admin user via Secrets Manager + Custom Resource
     // -----------------------------------------------------------------------
     const dashboardSecret = new secretsmanager.Secret(this, 'DashboardAdminCredentials', {
-      secretName: 'net-devops-dashboard-admin',
+      secretName: 'devops-dashboard-admin',
       description: 'Dashboard admin credentials (auto-generated)',
       generateSecretString: {
-        secretStringTemplate: JSON.stringify({ username: 'admin@demo.local' }),
+        secretStringTemplate: JSON.stringify({ username: 'admin@devops.local' }),
         generateStringKey: 'password',
         passwordLength: 16,
         excludeCharacters: '/"\'\\@`~{}[]|:;<>,',
@@ -176,7 +176,7 @@ exports.handler = async (event, context) => {
       serviceToken: userProvisionerFn.functionArn,
       properties: {
         UserPoolId: userPool.userPoolId,
-        Username: 'admin@demo.local',
+        Username: 'admin@devops.local',
         SecretArn: dashboardSecret.secretArn,
       },
     });
@@ -222,7 +222,7 @@ exports.handler = async (event, context) => {
 
     new cdk.CfnOutput(this, 'DashboardCredentialsSecretArn', {
       value: dashboardSecret.secretArn,
-      description: 'Secrets Manager ARN for dashboard admin credentials — retrieve with: aws secretsmanager get-secret-value --secret-id net-devops-dashboard-admin',
+      description: 'Secrets Manager ARN for dashboard admin credentials — retrieve with: aws secretsmanager get-secret-value --secret-id devops-dashboard-admin',
     });
 
     // -----------------------------------------------------------------------

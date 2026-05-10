@@ -29,7 +29,7 @@ const corsHeaders = {
 async function getOpsClients() {
   const creds = await sts.send(new AssumeRoleCommand({
     RoleArn: NETWORK_OPS_ROLE_ARN,
-    RoleSessionName: 'ops-session',
+    RoleSessionName: 'maint-session',
     DurationSeconds: 900,
   }));
   const credentials = {
@@ -81,33 +81,26 @@ async function fixScenario5(ssm: SSMClient): Promise<string> {
   await ssm.send(new SendCommandCommand({
     InstanceIds: [process.env.EC2_INSTANCE_ID!],
     DocumentName: 'AWS-RunShellScript',
-    Parameters: { commands: [
-      'sudo systemctl unmask nginx',
-      'sudo systemctl start nginx',
-      'sudo systemctl unmask health-check-app',
-      'sudo systemctl start health-check-app',
-    ] },
-    Comment: 'Service recovery',
+    Parameters: { commands: ['sudo /opt/scripts/s5f.sh'] },
+    TimeoutSeconds: 30,
   }));
-  return 'Backend application restarted';
+  return 'Service restored';
 }
 
 async function fixScenario6(ssm: SSMClient): Promise<string> {
   await ssm.send(new SendCommandCommand({
     InstanceIds: [process.env.EC2_INSTANCE_ID!],
     DocumentName: 'AWS-RunShellScript',
-    Parameters: { commands: [
-      'sudo cp /etc/hosts.bak /etc/hosts 2>/dev/null || sudo sed -i "/maps.geo.*amazonaws.com/d; /geo.*amazonaws.com/d; /ssm.*amazonaws.com/d; /monitoring.*amazonaws.com/d; /api.production.com/d; /app.example.com/d" /etc/hosts',
-    ] },
-    Comment: 'Cleanup',
+    Parameters: { commands: ['sudo /opt/scripts/s6f.sh'] },
+    TimeoutSeconds: 30,
   }));
-  return 'Host configuration restored';
+  return 'Configuration restored';
 }
 
 export const handler = async (event: any) => {
   try {
     const body = JSON.parse(event.body || '{}');
-    const scenarioId = body.scenarioId;
+    const scenarioId = body.id;
 
     if (!scenarioId || scenarioId < 1 || scenarioId > 6) {
       return { statusCode: 400, headers: corsHeaders, body: JSON.stringify({ error: 'scenarioId (1-6) is required' }) };
@@ -152,7 +145,7 @@ export const handler = async (event: any) => {
 
     await ddb.send(new PutItemCommand({
       TableName: TABLE_NAME,
-      Item: { sessionId: { S: activeSessionId }, timestamp: { S: now }, eventType: { S: 'scenario_fixed' }, data: { S: JSON.stringify({ scenarioId, message: fixMessage }) }, ttl: { N: String(ttl) } },
+      Item: { sessionId: { S: activeSessionId }, timestamp: { S: now }, eventType: { S: 'scenario_resolved' }, data: { S: JSON.stringify({ scenarioId, message: fixMessage }) }, ttl: { N: String(ttl) } },
     }));
 
     return { statusCode: 200, headers: corsHeaders, body: JSON.stringify({ sessionId: activeSessionId, scenarioId, message: `Scenario ${scenarioId} fix completed`, details: fixMessage }) };

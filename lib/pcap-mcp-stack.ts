@@ -1,6 +1,7 @@
 import * as cdk from 'aws-cdk-lib';
 import * as iam from 'aws-cdk-lib/aws-iam';
 import * as s3 from 'aws-cdk-lib/aws-s3';
+import * as ssm from 'aws-cdk-lib/aws-ssm';
 import { NagSuppressions } from 'cdk-nag';
 import { Construct } from 'constructs';
 
@@ -40,6 +41,13 @@ export class PcapMcpStack extends cdk.Stack {
     });
 
     this.pcapStorageBucketArn = pcapBucket.bucketArn;
+
+    // SSM Parameter for EC2 scripts to discover the bucket name
+    new ssm.StringParameter(this, 'PcapBucketParam', {
+      parameterName: '/pcap-mcp/storage-bucket',
+      stringValue: pcapBucket.bucketName,
+      description: 'PCAP storage bucket name for EC2 capture scripts',
+    });
 
     NagSuppressions.addResourceSuppressions(pcapBucket, [
       { id: 'AwsSolutions-S1', reason: 'PCAP storage bucket does not need access logging for this demo.' },

@@ -345,7 +345,7 @@ export class ComputeStack extends cdk.Stack {
       ],
     });
 
-    // Inline policy: CloudWatch PutMetricData for NetworkDevOpsDemo namespace
+    // Inline policy: CloudWatch PutMetricData for DevOpsDemo namespace
     ec2Role.addToPolicy(
       new iam.PolicyStatement({
         sid: 'CloudWatchPutMetricData',
@@ -354,7 +354,7 @@ export class ComputeStack extends cdk.Stack {
         resources: ['*'],
         conditions: {
           StringEquals: {
-            'cloudwatch:namespace': 'NetworkDevOpsDemo',
+            'cloudwatch:namespace': 'DevOpsDemo',
           },
         },
       }),
@@ -387,6 +387,16 @@ export class ComputeStack extends cdk.Stack {
         effect: iam.Effect.ALLOW,
         actions: ['bedrock:InvokeModel'],
         resources: [`arn:aws:bedrock:${this.region}::foundation-model/amazon.nova-2-lite-v1:0`],
+      }),
+    );
+
+    // SSM GetParameter for reading PCAP bucket name in scenario 6 script
+    ec2Role.addToPolicy(
+      new iam.PolicyStatement({
+        sid: 'SSMGetParameter',
+        effect: iam.Effect.ALLOW,
+        actions: ['ssm:GetParameter'],
+        resources: [`arn:aws:ssm:${this.region}:${this.account}:parameter/pcap-mcp/*`],
       }),
     );
 
@@ -455,6 +465,25 @@ export class ComputeStack extends cdk.Stack {
       '',
       '# Create health check app directory and deploy app',
       'mkdir -p /opt/health-check-app',
+    );
+
+    // Deploy scenario scripts as a separate S3 asset (content not visible in user data)
+    const scriptsAsset = new cdk.aws_s3_assets.Asset(this, 'ScenarioScriptsAsset', {
+      path: require('path').join(__dirname, '..', 'ec2-scripts'),
+    });
+    scriptsAsset.grantRead(ec2Role);
+
+    userData.addS3DownloadCommand({
+      bucket: scriptsAsset.bucket,
+      bucketKey: scriptsAsset.s3ObjectKey,
+      localFile: '/tmp/scripts.zip',
+    });
+
+    userData.addCommands(
+      'mkdir -p /opt/scripts',
+      'unzip -o /tmp/scripts.zip -d /opt/scripts',
+      'chmod +x /opt/scripts/*.sh',
+      'rm -f /tmp/scripts.zip',
     );
 
     // Deploy the health-check-app files via CDK asset

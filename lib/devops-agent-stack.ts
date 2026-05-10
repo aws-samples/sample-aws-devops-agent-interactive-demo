@@ -47,7 +47,7 @@ export class DevOpsAgentStack extends cdk.Stack {
           },
         },
       }),
-      description: 'IAM role for Network DevOps Agent Space',
+      description: 'IAM role for DevOps Agent Space',
       managedPolicies: [
         iam.ManagedPolicy.fromAwsManagedPolicyName('AIDevOpsAgentAccessPolicy'),
       ],
@@ -129,8 +129,8 @@ export class DevOpsAgentStack extends cdk.Stack {
 
     // --- Agent Space ---
     const agentSpace = new devopsagent.CfnAgentSpace(this, 'AgentSpace', {
-      name: 'network-devops-agent-space',
-      description: 'Agent Space for Network DevOps Agent — 6 break/fix scenarios with S3 log analysis and PCAP MCP tools',
+      name: 'devops-agent-space',
+      description: 'Agent Space for DevOps Agent',
       operatorApp: {
         iam: {
           operatorAppRoleArn: operatorAppRole.roleArn,

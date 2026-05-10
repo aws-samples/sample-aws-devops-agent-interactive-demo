@@ -46,7 +46,7 @@ async function publishFailureMetric(checkType, reason) {
   try {
     await cwClient.send(
       new PutMetricDataCommand({
-        Namespace: 'NetworkDevOpsDemo',
+        Namespace: 'DevOpsDemo',
         MetricData: [
           {
             MetricName: 'ConnectivityFailure',

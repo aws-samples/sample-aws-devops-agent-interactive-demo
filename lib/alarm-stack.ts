@@ -41,8 +41,8 @@ export class AlarmStack extends cdk.Stack {
     // Task 7.1 — SNS Topic
     // -----------------------------------------------------------------------
     const alarmTopic = new sns.Topic(this, 'AlarmTopic', {
-      topicName: 'network-devops-demo-alarms',
-      displayName: 'Network DevOps Demo Alarms',
+      topicName: 'devops-alarms',
+      displayName: 'DevOps Alarms',
     });
 
     this.snsTopicArn = alarmTopic.topicArn;
@@ -50,7 +50,7 @@ export class AlarmStack extends cdk.Stack {
     // -----------------------------------------------------------------------
     // Task 7.1 — Custom metric alarms (Scenarios 1–4)
     //
-    // All use Namespace=NetworkDevOpsDemo, MetricName=ConnectivityFailure
+    // All use Namespace=DevOpsDemo, MetricName=ConnectivityFailure
     // with a CheckType dimension identifying the scenario.
     // Threshold: > 0 for 1 period (60s)
     // Requirements: 5.1, 5.2
@@ -90,7 +90,7 @@ export class AlarmStack extends cdk.Stack {
 
     for (const cfg of customAlarmConfigs) {
       const metric = new cloudwatch.Metric({
-        namespace: 'NetworkDevOpsDemo',
+        namespace: 'DevOpsDemo',
         metricName: 'ConnectivityFailure',
         dimensionsMap: {
           CheckType: cfg.checkType,
@@ -132,7 +132,7 @@ export class AlarmStack extends cdk.Stack {
 
     const alb5xxAlarm = new cloudwatch.Alarm(this, 'Alb5xxErrorAlarm', {
       alarmName: 'alarm-5',
-      alarmDescription: 'Application error detected',
+      alarmDescription: 'Application error detected. ELB access logs available in s3://elb-access-logs-' + cdk.Aws.ACCOUNT_ID + '-' + cdk.Aws.REGION + '/ for request-level analysis.',
       metric: alb5xxMetric,
       threshold: 0,
       comparisonOperator:
@@ -146,14 +146,14 @@ export class AlarmStack extends cdk.Stack {
     // -----------------------------------------------------------------------
     // Task 7.1 — Custom metric alarm for outbound-https (Scenario 6)
     //
-    // Uses Namespace=NetworkDevOpsDemo, MetricName=ConnectivityFailure,
+    // Uses Namespace=DevOpsDemo, MetricName=ConnectivityFailure,
     // CheckType=outbound-https
     // Threshold: > 0 for 1 period (60s)
     // Requirements: 5.1, 5.2
     // -----------------------------------------------------------------------
 
     const outboundHttpsMetric = new cloudwatch.Metric({
-      namespace: 'NetworkDevOpsDemo',
+      namespace: 'DevOpsDemo',
       metricName: 'ConnectivityFailure',
       dimensionsMap: {
         CheckType: 'outbound-https',
@@ -168,7 +168,7 @@ export class AlarmStack extends cdk.Stack {
       {
         alarmName: 'alarm-6',
         alarmDescription:
-          'Connectivity failure detected',
+          'Connectivity failure detected. PCAP captures available in s3://pcap-analyzer-storage-' + cdk.Aws.ACCOUNT_ID + '/captures/ for packet-level analysis.',
         metric: outboundHttpsMetric,
         threshold: 0,
         comparisonOperator:
@@ -195,7 +195,7 @@ export class AlarmStack extends cdk.Stack {
     // Secrets Manager secret for webhook credentials
     // -----------------------------------------------------------------------
     const webhookSecret = new secretsmanager.Secret(this, 'WebhookSecret', {
-      secretName: 'network-devops-webhook-config',
+      secretName: 'devops-webhook-config',
       description: 'Webhook URL and HMAC secret for DevOps Agent integration',
       secretObjectValue: {
         webhookUrl: cdk.SecretValue.unsafePlainText(''),
@@ -235,7 +235,7 @@ export class AlarmStack extends cdk.Stack {
         effect: iam.Effect.ALLOW,
         actions: ['dynamodb:PutItem', 'dynamodb:GetItem'],
         resources: [
-          `arn:aws:dynamodb:${cdk.Aws.REGION}:${cdk.Aws.ACCOUNT_ID}:table/net-devops-dashboard-events-*`,
+          `arn:aws:dynamodb:${cdk.Aws.REGION}:${cdk.Aws.ACCOUNT_ID}:table/devops-dashboard-events-*`,
         ],
       }),
     );

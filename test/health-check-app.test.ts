@@ -51,10 +51,10 @@ describe('Health Check App — Source Analysis', () => {
   });
 
   // =========================================================================
-  // Requirement 3.5: Bedrock check interval is 60 seconds
+  // Requirement 3.5: Bedrock check interval is 10 seconds
   // =========================================================================
-  test('Bedrock check interval is 60000ms (60 seconds)', () => {
-    expect(healthCheckSource).toMatch(/setInterval\s*\(\s*checkBedrock\s*,\s*60000\s*\)/);
+  test('Bedrock check interval is 10000ms (10 seconds)', () => {
+    expect(healthCheckSource).toMatch(/setInterval\s*\(\s*checkBedrock\s*,\s*10000\s*\)/);
   });
 
   // =========================================================================
@@ -62,7 +62,7 @@ describe('Health Check App — Source Analysis', () => {
   // =========================================================================
   test('Outbound HTTPS check interval is 10000ms (10 seconds)', () => {
     expect(healthCheckSource).toMatch(
-      /setInterval\s*\(\s*checkOutboundHttps\s*,\s*10000\s*\)/,
+      /setInterval\s*\(\s*checkCloudWatchTls\s*,\s*10000\s*\)/,
     );
   });
 
@@ -99,8 +99,8 @@ describe('Health Check App — Source Analysis', () => {
   // =========================================================================
   // Requirement 3.7: Metric publishing on failure
   // =========================================================================
-  test('publishFailureMetric uses NetworkDevOpsDemo namespace', () => {
-    expect(healthCheckSource).toMatch(/Namespace:\s*['"]NetworkDevOpsDemo['"]/);
+  test('publishFailureMetric uses DevOpsDemo namespace', () => {
+    expect(healthCheckSource).toMatch(/Namespace:\s*['"]DevOpsDemo['"]/);
   });
 
   test('publishFailureMetric uses ConnectivityFailure metric name', () => {
@@ -142,7 +142,7 @@ describe('Health Check App — Source Analysis', () => {
     expect(healthCheckSource).toMatch(/function\s+checkNat\s*\(/);
     expect(healthCheckSource).toMatch(/async\s+function\s+checkS3\s*\(/);
     expect(healthCheckSource).toMatch(/async\s+function\s+checkBedrock\s*\(/);
-    expect(healthCheckSource).toMatch(/function\s+checkOutboundHttps\s*\(/);
+    expect(healthCheckSource).toMatch(/function\s+checkCloudWatchTls\s*\(/);
   });
 
   // =========================================================================
@@ -155,7 +155,7 @@ describe('Health Check App — Source Analysis', () => {
     expect(afterIntervals).toMatch(/checkNat\s*\(\s*\)/);
     expect(afterIntervals).toMatch(/checkS3\s*\(\s*\)/);
     expect(afterIntervals).toMatch(/checkBedrock\s*\(\s*\)/);
-    expect(afterIntervals).toMatch(/checkOutboundHttps\s*\(\s*\)/);
+    expect(afterIntervals).toMatch(/checkCloudWatchTls\s*\(\s*\)/);
   });
 });
 

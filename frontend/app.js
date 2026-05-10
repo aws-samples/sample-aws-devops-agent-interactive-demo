@@ -1,7 +1,7 @@
 /**
  * AWS DevOps Agent Interactive Demo
  * Polls GET /health every 5s, GET /events every 5s.
- * Break/Fix buttons trigger POST /break and POST /fix for 6 scenarios.
+ * Break/Fix buttons trigger POST /t and POST /r for 6 scenarios.
  * Mutual exclusion: only one scenario active at a time.
  */
 
@@ -126,9 +126,29 @@ function switchTab(tabName) {
   } else if (tabName === 'scenarios') {
     document.getElementById('tabScenarios').classList.add('active');
     document.getElementById('tabBtnScenarios').classList.add('active');
+  } else if (tabName === 'explain') {
+    document.getElementById('tabExplain').classList.add('active');
+    document.getElementById('tabBtnExplain').classList.add('active');
   } else {
     document.getElementById('tabWelcome').classList.add('active');
     document.getElementById('tabBtnWelcome').classList.add('active');
+  }
+}
+
+// ── Config Sub-tab Switching ───────────────────────────────────────
+function switchConfigSubtab(subtab) {
+  document.querySelectorAll('.subtab-content').forEach(el => el.classList.remove('active'));
+  document.querySelectorAll('.subtab-btn').forEach(el => el.classList.remove('active'));
+
+  if (subtab === 'mcp') {
+    document.getElementById('subtabMcp').classList.add('active');
+    document.getElementById('subtabBtnMcp').classList.add('active');
+  } else if (subtab === 'webhook') {
+    document.getElementById('subtabWebhook').classList.add('active');
+    document.getElementById('subtabBtnWebhook').classList.add('active');
+  } else if (subtab === 's3') {
+    document.getElementById('subtabS3').classList.add('active');
+    document.getElementById('subtabBtnS3').classList.add('active');
   }
 }
 
@@ -148,6 +168,34 @@ function applyTheme(theme) {
   localStorage.setItem('dashboardTheme', theme);
   document.getElementById('themeIcon').textContent = theme === 'dark' ? '☀️' : '🌙';
   document.getElementById('themeLabel').textContent = theme === 'dark' ? 'Light' : 'Dark';
+}
+
+// ── Topology Fullscreen Toggle ─────────────────────────────────────
+function toggleTopologyFullscreen() {
+  const container = document.getElementById('topologyContainer');
+  const btn = document.getElementById('fullscreenBtn');
+  if (!container) return;
+
+  container.classList.toggle('fullscreen');
+  const isFullscreen = container.classList.contains('fullscreen');
+  btn.textContent = isFullscreen ? '✕' : '⛶';
+  btn.title = isFullscreen ? 'Exit fullscreen' : 'Toggle fullscreen';
+
+  // ESC key to exit
+  if (isFullscreen) {
+    document.addEventListener('keydown', exitFullscreenOnEsc);
+  } else {
+    document.removeEventListener('keydown', exitFullscreenOnEsc);
+  }
+}
+
+function exitFullscreenOnEsc(e) {
+  if (e.key === 'Escape') {
+    const container = document.getElementById('topologyContainer');
+    if (container && container.classList.contains('fullscreen')) {
+      toggleTopologyFullscreen();
+    }
+  }
 }
 
 // ── Initialization ─────────────────────────────────────────────────
@@ -393,11 +441,19 @@ function updateTopologyPath(scenarioId, status) {
   // Scenario 2 has two path segments, Scenario 6 also has two segments
   const pathIds = sid === '2'
     ? [`path-s2a`, `path-s2b`]
+    : sid === '3'
+    ? [`path-s3`, `path-s3b`]
+    : sid === '4'
+    ? [`path-s4`, `path-s4b`]
     : sid === '6'
     ? [`path-s6`, `path-s6b`]
     : [`path-s${sid}`];
   const flowIds = sid === '2'
     ? [`flow-s2a`, `flow-s2b`]
+    : sid === '3'
+    ? [`flow-s3`, `flow-s3b`]
+    : sid === '4'
+    ? [`flow-s4`, `flow-s4b`]
     : sid === '6'
     ? [`flow-s6`, `flow-s6b`]
     : [`flow-s${sid}`];
@@ -495,9 +551,9 @@ async function pollEvents() {
 // ── Event Rendering ────────────────────────────────────────────────
 const EVENT_MAP = {
   scenario_break_triggered: ['t-break', '💥', d => `Break triggered: Scenario ${d.scenarioId || '?'} — ${SCENARIOS[d.scenarioId]?.name || ''}`],
-  scenario_broken:          ['t-break', '🔴', d => `Scenario ${d.scenarioId || '?'} broken`],
+  scenario_active:          ['t-break', '🔴', d => `Scenario ${d.scenarioId || '?'} broken`],
   scenario_fix_triggered:   ['t-fix',   '🔧', d => `Fix triggered: Scenario ${d.scenarioId || '?'} — ${SCENARIOS[d.scenarioId]?.name || ''}`],
-  scenario_fixed:           ['t-fix',   '✅', d => `Scenario ${d.scenarioId || '?'} fixed`],
+  scenario_resolved:           ['t-fix',   '✅', d => `Scenario ${d.scenarioId || '?'} fixed`],
   alarm_triggered:          ['t-alarm', '🚨', d => `Alarm: ${d.alarmName || ''} ${d.newStateValue || 'ALARM'}`],
   webhook_sent:             ['t-webhook','📤', d => `Webhook sent: ${d.incidentId || ''}`],
   investigation_created:    ['t-inv-created',  '🔍', d => `Investigation started: ${d.investigationId || ''}`],
@@ -577,10 +633,10 @@ async function breakScenario(scenarioId) {
 
   try {
     if (!await ensureAuth()) return;
-    const res = await fetch(`${API_BASE_URL}/break`, {
+    const res = await fetch(`${API_BASE_URL}/t`, {
       method: 'POST',
       headers: getAuthHeaders(),
-      body: JSON.stringify({ scenarioId }),
+      body: JSON.stringify({ id: scenarioId }),
     });
     const d = await res.json();
     if (res.ok) {
@@ -619,10 +675,10 @@ async function fixScenario(scenarioId) {
 
   try {
     if (!await ensureAuth()) return;
-    const res = await fetch(`${API_BASE_URL}/fix`, {
+    const res = await fetch(`${API_BASE_URL}/r`, {
       method: 'POST',
       headers: getAuthHeaders(),
-      body: JSON.stringify({ scenarioId, sessionId: currentSessionId }),
+      body: JSON.stringify({ id: scenarioId, sessionId: currentSessionId }),
     });
     const d = await res.json();
     if (res.ok) {

@@ -100,7 +100,7 @@ export class DashboardStack extends cdk.Stack {
 
     // ── Task 10.1: DynamoDB Events Table ──────────────────────────────
     const eventsTable = new dynamodb.Table(this, 'DashboardEventsTable', {
-      tableName: `net-devops-dashboard-events-${cdk.Aws.STACK_NAME}`,
+      tableName: `devops-dashboard-events-${cdk.Aws.STACK_NAME}`,
       partitionKey: { name: 'sessionId', type: dynamodb.AttributeType.STRING },
       sortKey: { name: 'timestamp', type: dynamodb.AttributeType.STRING },
       billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
@@ -169,7 +169,7 @@ export class DashboardStack extends cdk.Stack {
     // changes. CloudTrail shows "network-ops-role" as the caller instead of
     // the Lambda function name, making investigations more realistic.
     const networkOpsRole = new iam.Role(this, 'NetworkOpsRole', {
-      roleName: 'network-ops-role',
+      roleName: 'devops-ops-role',
       assumedBy: new iam.CompositePrincipal(
         new iam.AccountPrincipal(this.account),
       ),
@@ -406,8 +406,8 @@ export class DashboardStack extends cdk.Stack {
 
     // ── Task 10.3: API Gateway REST API ───────────────────────────────
     const api = new apigateway.RestApi(this, 'DashboardApi', {
-      restApiName: 'net-devops-dashboard-api',
-      description: 'API for Network DevOps Agent demo dashboard',
+      restApiName: 'devops-dashboard-api',
+      description: 'API for DevOps Agent dashboard',
       defaultCorsPreflightOptions: {
         allowOrigins: apigateway.Cors.ALL_ORIGINS,
         allowMethods: apigateway.Cors.ALL_METHODS,
@@ -433,12 +433,12 @@ export class DashboardStack extends cdk.Stack {
     const healthResource = api.root.addResource('health');
     healthResource.addMethod('GET', new apigateway.LambdaIntegration(healthLambda), authMethodOptions);
 
-    // POST /break
-    const breakResource = api.root.addResource('break');
+    // POST /t
+    const breakResource = api.root.addResource('t');
     breakResource.addMethod('POST', new apigateway.LambdaIntegration(breakLambda), authMethodOptions);
 
-    // POST /fix
-    const fixResource = api.root.addResource('fix');
+    // POST /r
+    const fixResource = api.root.addResource('r');
     fixResource.addMethod('POST', new apigateway.LambdaIntegration(fixLambda), authMethodOptions);
 
     // GET /events
@@ -490,7 +490,7 @@ export class DashboardStack extends cdk.Stack {
     // ── CloudFormation Outputs ──────────────────────────────────────────
     new cdk.CfnOutput(this, 'DashboardUrl', {
       value: `https://${distribution.distributionDomainName}?api=${api.url}&region=${cdk.Aws.REGION}&userPoolId=${props.userPoolId}&clientId=${props.dashboardClientId}&credentialsArn=${props.dashboardCredentialsSecretArn}`,
-      description: 'Dashboard URL (open this — login credentials in Secrets Manager: net-devops-dashboard-admin)',
+      description: 'Dashboard URL (open this — login credentials in Secrets Manager: devops-dashboard-admin)',
     });
 
     new cdk.CfnOutput(this, 'DashboardApiUrl', {
