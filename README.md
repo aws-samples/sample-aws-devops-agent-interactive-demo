@@ -116,7 +116,7 @@ Each scenario triggers a real infrastructure change, a CloudWatch alarm fires, a
 
 ```bash
 git clone https://github.com/aws-samples/sample-aws-devops-agent-interactive-demo.git
-cd sample-aws-devops-agent-interactive-demo
+cd sample-aws-devops-agent-interactive-demo/cdk
 npm install
 ```
 
@@ -267,30 +267,35 @@ See [codebuild-scripts/README.md](codebuild-scripts/README.md) for the full tech
 
 ```
 .
-├── 📁 bin/                    CDK app entry point
-├── 📁 lib/                    9 CDK stack definitions
-├── 📁 lambda/                 Lambda function handlers
-│   ├── dashboard-break/       POST /t — triggers scenario failures
-│   ├── dashboard-fix/         POST /r — restores infrastructure
-│   ├── dashboard-config/      GET /config — MCP/OAuth/bucket config
-│   ├── dashboard-health/      GET /health — scenario status polling
-│   ├── dashboard-events/      GET /events — event stream polling
-│   ├── dashboard-eventbridge/  EventBridge rule handler
-│   ├── dashboard-webhook-config/ POST /webhook-config
-│   ├── webhook/               SNS → DevOps Agent webhook forwarder
-│   ├── traffic-generator/     ALB traffic generation
-│   ├── build-trigger/         CodeBuild trigger
-│   └── build-waiter/          CodeBuild completion waiter
-├── 📁 frontend/               Dashboard UI (HTML/CSS/JS)
-│   ├── index.html             Main dashboard with SVG topology
-│   ├── styles.css             Cloudscape-inspired design tokens
-│   ├── app.js                 Dashboard logic and polling
-│   └── icons/                 AWS service SVG icons
-├── 📁 health-check-app/       EC2 health check application (Node.js)
-├── 📁 ec2-scripts/            Scenario 5/6 break/fix scripts (deployed via S3 asset)
-├── 📁 codebuild-scripts/      PCAP MCP Server Docker build
-├── 📁 scripts/                Deploy, destroy, show-outputs scripts
-└── 📁 test/                   CDK stack tests
+├── README.md
+├── LICENSE
+├── CONTRIBUTING.md
+├── CODE_OF_CONDUCT.md
+└── 📁 cdk/                    CDK infrastructure project
+    ├── 📁 bin/                CDK app entry point
+    ├── 📁 lib/                9 CDK stack definitions
+    ├── 📁 lambda/             Lambda function handlers
+    │   ├── dashboard-break/   POST /t — triggers scenario failures
+    │   ├── dashboard-fix/     POST /r — restores infrastructure
+    │   ├── dashboard-config/  GET /config — MCP/OAuth/bucket config
+    │   ├── dashboard-health/  GET /health — scenario status polling
+    │   ├── dashboard-events/  GET /events — event stream polling
+    │   ├── dashboard-eventbridge/  EventBridge rule handler
+    │   ├── dashboard-webhook-config/ POST /webhook-config
+    │   ├── webhook/           SNS → DevOps Agent webhook forwarder
+    │   ├── traffic-generator/ ALB traffic generation
+    │   ├── build-trigger/     CodeBuild trigger
+    │   └── build-waiter/      CodeBuild completion waiter
+    ├── 📁 frontend/           Dashboard UI (HTML/CSS/JS)
+    │   ├── index.html         Main dashboard with SVG topology
+    │   ├── styles.css         Cloudscape-inspired design tokens
+    │   ├── app.js             Dashboard logic and polling
+    │   └── icons/             AWS service SVG icons
+    ├── 📁 health-check-app/   EC2 health check application (Node.js)
+    ├── 📁 ec2-scripts/        Scenario 5/6 break/fix scripts (deployed via S3 asset)
+    ├── 📁 codebuild-scripts/  PCAP MCP Server Docker build
+    ├── 📁 scripts/            Deploy, destroy, show-outputs scripts
+    └── 📁 test/               CDK stack tests
 ```
 
 ---
