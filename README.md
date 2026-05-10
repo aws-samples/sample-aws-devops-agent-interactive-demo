@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="frontend/DevOpsAgent.svg" alt="AWS DevOps Agent" width="80">
+  <img src="cdk/frontend/DevOpsAgent.svg" alt="AWS DevOps Agent" width="80">
 </p>
 
 <h1 align="center">AWS DevOps Agent Interactive Demo</h1>
