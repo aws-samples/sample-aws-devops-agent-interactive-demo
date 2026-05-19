@@ -65,7 +65,7 @@ Deploy a fully functional environment with a single command. Break things on pur
 
 ## Demo Video
 
-https://github.com/user-attachments/assets/0f265e68-2cb7-4053-9308-86da53bd89f4
+https://github.com/user-attachments/assets/24d08ce6-4ce7-4754-bc04-2f86716af1a9
 
 ---
 
