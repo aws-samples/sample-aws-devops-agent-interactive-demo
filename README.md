@@ -184,7 +184,7 @@ Go to the **Configuration** tab on the dashboard. You'll see three sections:
 
 **Webhook Configuration**
 1. In the Agent Space console, navigate to **Capabilities → Webhooks → Add webhook**
-2. Follow the instructions to generate a webhook URL and HMAC secret
+2. Follow the instructions to generate a webhook URL and HMAC secret 
 3. Paste both values into the webhook form on the dashboard and click **Save webhook**
 
 **S3 Bucket ARNs**
