@@ -96,7 +96,7 @@ export class NetworkStack extends cdk.Stack {
         {
           cidrMask: 24,
           name: 'Public',
-          subnetType: ec2.SubnetType.PUBLIC,
+          subnetType: ec2.SubnetType.PRIVATE_ISOLATED,
         },
         {
           cidrMask: 24,
