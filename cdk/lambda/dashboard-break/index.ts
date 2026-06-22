@@ -134,7 +134,7 @@ export const handler = async (event: any) => {
 
     await ddb.send(new PutItemCommand({
       TableName: TABLE_NAME,
-      Item: { sessionId: { S: 'SYSTEM' }, timestamp: { S: 'ACTIVE_SCENARIO' }, scenarioId: { N: String(scenarioId) }, activeSessionId: { S: sessionId }, startedAt: { S: now }, ttl: { N: String(ttl) } },
+      Item: { sessionId: { S: 'SYSTEM' }, timestamp: { S: 'ACTIVE_SCENARIO' }, scenarioId: { N: String(scenarioId) }, activeSessionId: { S: sessionId }, startedAt: { S: now }, phase: { S: 'breaking' }, phaseStartedAt: { S: now }, ttl: { N: String(ttl) } },
       ConditionExpression: 'attribute_not_exists(sessionId)',
     }));
 

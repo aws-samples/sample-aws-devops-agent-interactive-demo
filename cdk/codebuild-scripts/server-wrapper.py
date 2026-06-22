@@ -1,352 +1,279 @@
 """
-PCAP Analyzer MCP Server — AgentCore Runtime Wrapper.
+Wireshark MCP Server — AgentCore Runtime Wrapper.
 
-This is the entry point for the PCAP MCP Server container running on
-Amazon Bedrock AgentCore Runtime. It wraps the upstream
-sample-pcap-analyzer-mcp (https://github.com/aws-samples/sample-pcap-analyzer-mcp)
-with three key fixes:
+Entry point for the packet-capture MCP server container running on
+Amazon Bedrock AgentCore Runtime. It wraps the open-source
+Wireshark MCP project (https://github.com/bx33661/Wireshark-MCP) with
+the same three enhancements described in the blog post, without modifying
+the upstream package:
 
-1. TRANSPORT: Uses FastMCP with streamable-http transport (the upstream uses
-   the low-level mcp.server.Server with stdio transport and decorator-based
-   registration which is incompatible with newer MCP SDK versions).
+1. TRANSPORT: Serves FastMCP over streamable-http on 0.0.0.0:8000
+   (AgentCore Runtime compatible). Wireshark MCP supports this transport
+   natively; we build its server and run it on the AgentCore port.
 
-2. S3 SUPPORT: All tools that accept pcap_file transparently handle s3:// URIs
-   by downloading the file locally before analysis. The upstream only supports
-   local file paths.
+2. S3 SUPPORT: Every tool that accepts a pcap path transparently handles
+   s3:// URIs (and bucket-relative references) by downloading the object
+   locally before analysis. Injected at the WiresharkSuiteClient layer so
+   it applies to ALL upstream tools uniformly. A list_s3_pcap_files tool is
+   also added for discovering captures in a bucket/prefix.
 
-3. TSHARK FIX: The upstream analyze_pcap_file 'summary' mode uses an invalid
-   tshark argument (-z proto,colinfo without required filter/field params).
-   We override it with valid tshark commands (-z conv,tcp + -z io,stat,10).
+3. TSHARK INTEGRATION: Packet dissection and protocol analysis via tshark
+   (provided natively by Wireshark MCP).
 
-See codebuild-scripts/README.md for full documentation.
+See codebuild-scripts/README.md for the full technical deep-dive.
 """
-import os
-import logging
+from __future__ import annotations
+
 import hashlib
 import json
+import logging
+import os
+from urllib.parse import urlparse
 
-os.environ["PCAP_STORAGE_DIR"] = os.environ.get("PCAP_STORAGE_DIR", "/tmp/pcap_storage")
-os.environ["WIRESHARK_PATH"] = os.environ.get("WIRESHARK_PATH", "/usr/bin/tshark")
+# --- Environment defaults -------------------------------------------------
+# Where S3 objects are downloaded to and the only directory tshark is allowed
+# to read from (defense in depth — the upstream client honors this sandbox).
+PCAP_STORAGE_DIR = os.environ.setdefault("PCAP_STORAGE_DIR", "/tmp/pcap_storage")
+os.environ.setdefault("WIRESHARK_MCP_ALLOWED_DIRS", PCAP_STORAGE_DIR)
 
 logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("wireshark-mcp-agentcore")
 
-import boto3
-from mcp.server.fastmcp import FastMCP
-from awslabs.pcap_analyzer_mcp_server.server import PCAPAnalyzerServer
+import boto3  # noqa: E402
+import wireshark_mcp.server as wsrv  # noqa: E402
+from wireshark_mcp.tshark.client import WiresharkSuiteClient  # noqa: E402
 
-# Create FastMCP app (AgentCore compatible)
-mcp = FastMCP("pcap-analyzer", host="0.0.0.0", port=8000, stateless_http=True)
-
-# Create the upstream server to reuse its tool implementations
-_pcap = PCAPAnalyzerServer()
-
-# S3 client for downloading PCAP files
+os.makedirs(PCAP_STORAGE_DIR, exist_ok=True)
 _s3 = boto3.client("s3")
 
-PCAP_STORAGE_DIR = os.environ["PCAP_STORAGE_DIR"]
+# Capture bucket for resolving bare/local-looking pcap references the agent may
+# pass (e.g. "/tmp/captures/incident-X.pcap" or "captures/incident-X.pcap").
+# Falls back to the demo's conventional name pcap-analyzer-storage-<account>.
+PCAP_BUCKET_ENV = os.environ.get("PCAP_BUCKET", "")
+_PCAP_BUCKET = None  # type: str | None
 
 
-def _resolve_s3_path(pcap_file: str) -> str:
-    """If pcap_file is an S3 URI (s3://bucket/key), download it locally and return the local path.
-    If it's already a local path, return as-is."""
-    if not pcap_file.startswith("s3://"):
-        return pcap_file
+def _account_pcap_bucket() -> str:
+    global _PCAP_BUCKET
+    if _PCAP_BUCKET is None:
+        if PCAP_BUCKET_ENV:
+            _PCAP_BUCKET = PCAP_BUCKET_ENV
+        else:
+            try:
+                acct = boto3.client("sts").get_caller_identity()["Account"]
+                _PCAP_BUCKET = f"pcap-analyzer-storage-{acct}"
+            except Exception:
+                _PCAP_BUCKET = ""
+    return _PCAP_BUCKET
 
-    # Parse s3://bucket/key
-    path = pcap_file[5:]  # strip "s3://"
-    bucket, _, key = path.partition("/")
+
+def _looks_like_s3(token: object) -> bool:
+    return isinstance(token, str) and token.startswith("s3://")
+
+
+def _download_s3(s3_uri: str) -> str:
+    """Download an s3://bucket/key object into PCAP_STORAGE_DIR and return the
+    local path. Cached on disk by a hash of the URI to avoid re-downloading."""
+    parsed = urlparse(s3_uri)
+    bucket, key = parsed.netloc, parsed.path.lstrip("/")
     if not bucket or not key:
-        raise ValueError(f"Invalid S3 URI: {pcap_file}. Expected s3://bucket/key")
+        raise ValueError(f"Invalid S3 URI: {s3_uri}. Expected s3://bucket/key")
 
-    # Create a deterministic local filename based on the S3 path
-    filename = os.path.basename(key)
-    if not filename.endswith(".pcap"):
-        filename += ".pcap"
-    # Add hash prefix to avoid collisions
-    path_hash = hashlib.md5(pcap_file.encode()).hexdigest()[:8]
+    filename = os.path.basename(key) or "object"
+    path_hash = hashlib.md5(s3_uri.encode()).hexdigest()[:8]
     local_path = os.path.join(PCAP_STORAGE_DIR, f"{path_hash}_{filename}")
 
-    # Download if not already cached
     if not os.path.exists(local_path):
-        logger.info(f"Downloading {pcap_file} to {local_path}")
+        logger.info("Downloading %s -> %s", s3_uri, local_path)
         _s3.download_file(bucket, key, local_path)
-        logger.info(f"Downloaded {os.path.getsize(local_path)} bytes")
+        logger.info("Downloaded %d bytes", os.path.getsize(local_path))
     else:
-        logger.info(f"Using cached file: {local_path}")
-
+        logger.info("Using cached download: %s", local_path)
     return local_path
 
 
+class S3WiresharkSuiteClient(WiresharkSuiteClient):
+    """Wireshark suite client that transparently localizes S3 references.
+
+    All upstream tools route file access through `_validate_file` (path
+    checks) and `_run_command` (actual tshark invocation). By overriding
+    just these two seams, every tool becomes S3-aware without touching the
+    upstream tool definitions.
+    """
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._s3_cache: dict[str, str] = {}
+
+    def _localize(self, token: str) -> str:
+        """Resolve an s3:// token to a local path (cached). Pass-through for
+        anything that is not an S3 URI."""
+        if not _looks_like_s3(token):
+            return token
+        if token not in self._s3_cache:
+            self._s3_cache[token] = _download_s3(token)
+        return self._s3_cache[token]
+
+    def _resolve_ref(self, ref: str) -> str:
+        """Resolve any capture reference the agent might pass into a local path:
+          - s3://bucket/key            -> download
+          - an existing local file     -> use as-is
+          - a local-looking guess      -> fetch the matching object from the
+            capture bucket (e.g. "/tmp/captures/incident-X.pcap",
+            "captures/incident-X.pcap", or just "incident-X.pcap")
+        The upstream tools don't advertise s3:// support, so the agent tends to
+        invent local paths; this maps those back to S3 so analysis just works.
+        Anything unresolvable is returned unchanged for normal error handling."""
+        if not isinstance(ref, str) or not ref:
+            return ref
+        if _looks_like_s3(ref):
+            return self._localize(ref)
+        if os.path.exists(ref):
+            return ref
+        bucket = _account_pcap_bucket()
+        if not bucket:
+            return ref
+        base = os.path.basename(ref)
+        candidates = []
+        if "captures/" in ref:
+            candidates.append(ref[ref.index("captures/"):])
+        candidates.append(f"captures/{base}")
+        candidates.append(base)
+        seen = set()
+        for key in candidates:
+            if not key or key in seen:
+                continue
+            seen.add(key)
+            try:
+                return self._localize(f"s3://{bucket}/{key}")
+            except Exception:
+                continue
+        return ref
+
+    # 1) Validation: accept s3:// / bucket refs by validating the localized copy.
+    def _validate_file(self, filepath: str):
+        try:
+            return super()._validate_file(self._resolve_ref(filepath))
+        except Exception as e:  # download / parse failure -> structured error
+            return {"success": False, "error": {"type": "S3Error", "message": str(e)}}
+
+    # 2) Execution: resolve the input file (-r) and any remaining s3:// tokens.
+    async def _run_command(self, cmd, *args, **kwargs):
+        new_cmd: list[str] = list(cmd)
+
+        # Resolve the tshark input file (-r <ref>) — handles s3://, local, or
+        # bucket-relative references the agent may have invented.
+        if "-r" in new_cmd:
+            r_idx = new_cmd.index("-r")
+            if r_idx + 1 < len(new_cmd):
+                new_cmd[r_idx + 1] = self._resolve_ref(new_cmd[r_idx + 1])
+
+        # Resolve any remaining s3:// tokens.
+        for i, tok in enumerate(new_cmd):
+            if _looks_like_s3(tok):
+                new_cmd[i] = self._localize(tok)
+
+        return await super()._run_command(new_cmd, *args, **kwargs)
+
+
+# Inject the S3-aware client into the upstream server builder. _build_server
+# references WiresharkSuiteClient as a module global, so patching the name is
+# enough to make the whole tool surface S3-aware.
+wsrv.WiresharkSuiteClient = S3WiresharkSuiteClient
+
+# Build the full upstream server (all tools, resources, prompts) bound to the
+# AgentCore host/port.
+mcp = wsrv._build_server(host="0.0.0.0", port=8000, log_level="INFO")
+
+
 # ---------------------------------------------------------------------------
-# S3-aware tool: list PCAP files in an S3 bucket prefix
+# Additional S3 discovery tool (custom to this AgentCore wrapper)
 # ---------------------------------------------------------------------------
 @mcp.tool()
 async def list_s3_pcap_files(s3_uri: str) -> str:
-    """List PCAP files in an S3 bucket/prefix. Pass s3://bucket or s3://bucket/prefix."""
+    """List PCAP/capture files in an S3 bucket or prefix.
+
+    Pass s3://bucket or s3://bucket/prefix. Returns .pcap / .pcapng / .cap files.
+    """
     try:
-        path = s3_uri.replace("s3://", "")
-        bucket, _, prefix = path.partition("/")
-        resp = _s3.list_objects_v2(Bucket=bucket, Prefix=prefix)
+        parsed = urlparse(s3_uri)
+        bucket, prefix = parsed.netloc, parsed.path.lstrip("/")
+        paginator = _s3.get_paginator("list_objects_v2")
         files = []
-        for obj in resp.get("Contents", []):
-            if obj["Key"].endswith(".pcap"):
-                files.append({
-                    "key": obj["Key"],
-                    "s3_uri": f"s3://{bucket}/{obj['Key']}",
-                    "size_bytes": obj["Size"],
-                    "last_modified": obj["LastModified"].isoformat(),
-                })
-        return json.dumps({"bucket": bucket, "prefix": prefix, "pcap_files": files, "total": len(files)}, indent=2)
-    except Exception as e:
-        return json.dumps({"error": str(e)})
-
-
-# ---------------------------------------------------------------------------
-# All analysis tools — S3-aware via _resolve_s3_path
-# ---------------------------------------------------------------------------
-@mcp.tool()
-async def analyze_pcap_file(pcap_file: str, analysis_type: str = "summary", display_filter: str = "") -> str:
-    """Analyze a pcap file and generate insights. Supports s3:// URIs."""
-    import asyncio
-    local = _resolve_s3_path(pcap_file)
-    
-    # Override the buggy upstream 'summary' and 'protocols' analysis types
-    # which use invalid tshark '-z proto,colinfo' arguments
-    if analysis_type in ("summary", "protocols"):
-        tshark = os.environ.get("WIRESHARK_PATH", "tshark")
-        if analysis_type == "summary":
-            args = [tshark, "-r", local, "-q", "-z", "conv,tcp", "-z", "io,stat,10"]
-        else:
-            args = [tshark, "-r", local, "-q", "-z", "io,phs"]
-        if display_filter:
-            args.extend(["-Y", display_filter])
-        proc = await asyncio.create_subprocess_exec(
-            *args, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE
+        for page in paginator.paginate(Bucket=bucket, Prefix=prefix):
+            for obj in page.get("Contents", []):
+                if obj["Key"].lower().endswith((".pcap", ".pcapng", ".cap")):
+                    files.append({
+                        "key": obj["Key"],
+                        "s3_uri": f"s3://{bucket}/{obj['Key']}",
+                        "size_bytes": obj["Size"],
+                        "last_modified": obj["LastModified"].isoformat(),
+                    })
+        return json.dumps(
+            {"bucket": bucket, "prefix": prefix, "capture_files": files, "total": len(files)},
+            indent=2,
         )
-        stdout, stderr = await proc.communicate()
-        output = stdout.decode() if proc.returncode == 0 else f"Error: {stderr.decode()}"
-        return json.dumps({"pcap_file": pcap_file, "analysis_type": analysis_type, "filter": display_filter, "analysis_output": output}, indent=2)
-    
-    # For other analysis types, delegate to upstream
-    r = await _pcap._analyze_pcap_file(local, analysis_type, display_filter or None)
-    return r[0].text
+    except Exception as e:
+        return json.dumps({"success": False, "error": {"type": "S3Error", "message": str(e)}})
 
 
-@mcp.tool()
-async def analyze_tls_handshakes(pcap_file: str) -> str:
-    """Analyze TLS handshakes including SNI, certificate details. Supports s3:// URIs."""
-    local = _resolve_s3_path(pcap_file)
-    r = await _pcap._analyze_tls_handshakes(local)
-    return r[0].text
+# ---------------------------------------------------------------------------
+# Tool allowlist — prune the surface to the tools this DevOps Agent workflow
+# actually uses. This (a) removes the vulnerable wireshark_export_objects tool
+# (CVE-2026-43901) and other unused tools, (b) keeps the agent focused, and
+# (c) reduces token usage. Adjust ALLOWED_TOOLS to expose more if needed.
+# ---------------------------------------------------------------------------
+ALLOWED_TOOLS = {
+    # custom S3 discovery
+    "list_s3_pcap_files",
+    # entry / overview
+    "wireshark_open_file",
+    "wireshark_quick_analysis",
+    "wireshark_get_file_info",
+    # packet inspection / navigation
+    "wireshark_get_packet_list",
+    "wireshark_get_packet_details",
+    "wireshark_get_packet_bytes",
+    "wireshark_get_packet_context",
+    "wireshark_follow_stream",
+    "wireshark_search_packets",
+    # extraction (incl. TLS/SNI + DNS for the SNI mismatch scenario)
+    "wireshark_extract_fields",
+    "wireshark_extract_tls_handshakes",
+    "wireshark_extract_dns_queries",
+    "wireshark_extract_http_requests",
+    "wireshark_list_ips",
+    # statistics
+    "wireshark_stats_conversations",
+    "wireshark_stats_endpoints",
+    "wireshark_stats_protocol_hierarchy",
+    "wireshark_stats_expert_info",
+    # tcp health + decode
+    "wireshark_analyze_tcp_health",
+    "wireshark_decode_payload",
+}
 
 
-@mcp.tool()
-async def extract_certificate_details(pcap_file: str) -> str:
-    """Extract SSL certificate details and validate against SNI. Supports s3:// URIs."""
-    local = _resolve_s3_path(pcap_file)
-    r = await _pcap._extract_certificate_details(local)
-    return r[0].text
+def _prune_tools(server) -> None:
+    tm = getattr(server, "_tool_manager", None)
+    if tm is None or not hasattr(tm, "_tools"):
+        logger.warning("Could not access tool manager; tool allowlist not applied")
+        return
+    removed = []
+    for name in list(tm._tools.keys()):
+        if name not in ALLOWED_TOOLS:
+            try:
+                tm.remove_tool(name)
+            except Exception:
+                tm._tools.pop(name, None)
+            removed.append(name)
+    logger.info("Tool allowlist applied: kept %d, removed %d (incl. export_objects/CVE)",
+                len(tm._tools), len(removed))
 
 
-@mcp.tool()
-async def analyze_sni_mismatches(pcap_file: str) -> str:
-    """Analyze SNI mismatches and correlate with connection resets. Supports s3:// URIs."""
-    local = _resolve_s3_path(pcap_file)
-    r = await _pcap._analyze_sni_mismatches(local)
-    return r[0].text
-
-
-@mcp.tool()
-async def analyze_tls_alerts(pcap_file: str) -> str:
-    """Analyze TLS alert messages that indicate handshake failures. Supports s3:// URIs."""
-    local = _resolve_s3_path(pcap_file)
-    r = await _pcap._analyze_tls_alerts(local)
-    return r[0].text
-
-
-@mcp.tool()
-async def analyze_connection_lifecycle(pcap_file: str) -> str:
-    """Analyze complete connection lifecycle from SYN to FIN/RST. Supports s3:// URIs."""
-    local = _resolve_s3_path(pcap_file)
-    r = await _pcap._analyze_connection_lifecycle(local)
-    return r[0].text
-
-
-@mcp.tool()
-async def extract_tls_cipher_analysis(pcap_file: str) -> str:
-    """Analyze TLS cipher suite negotiations and compatibility issues. Supports s3:// URIs."""
-    local = _resolve_s3_path(pcap_file)
-    r = await _pcap._extract_tls_cipher_analysis(local)
-    return r[0].text
-
-
-@mcp.tool()
-async def analyze_tcp_retransmissions(pcap_file: str) -> str:
-    """Analyze TCP retransmissions and packet loss patterns. Supports s3:// URIs."""
-    local = _resolve_s3_path(pcap_file)
-    r = await _pcap._analyze_tcp_retransmissions(local)
-    return r[0].text
-
-
-@mcp.tool()
-async def analyze_tcp_zero_window(pcap_file: str) -> str:
-    """Analyze TCP zero window conditions and flow control issues. Supports s3:// URIs."""
-    local = _resolve_s3_path(pcap_file)
-    r = await _pcap._analyze_tcp_zero_window(local)
-    return r[0].text
-
-
-@mcp.tool()
-async def analyze_tcp_window_scaling(pcap_file: str) -> str:
-    """Analyze TCP window scaling and flow control mechanisms. Supports s3:// URIs."""
-    local = _resolve_s3_path(pcap_file)
-    r = await _pcap._analyze_tcp_window_scaling(local)
-    return r[0].text
-
-
-@mcp.tool()
-async def analyze_packet_timing_issues(pcap_file: str) -> str:
-    """Analyze packet timing issues and duplicate packets. Supports s3:// URIs."""
-    local = _resolve_s3_path(pcap_file)
-    r = await _pcap._analyze_packet_timing_issues(local)
-    return r[0].text
-
-
-@mcp.tool()
-async def analyze_congestion_indicators(pcap_file: str) -> str:
-    """Analyze network congestion indicators and quality metrics. Supports s3:// URIs."""
-    local = _resolve_s3_path(pcap_file)
-    r = await _pcap._analyze_congestion_indicators(local)
-    return r[0].text
-
-
-@mcp.tool()
-async def analyze_dns_resolution_issues(pcap_file: str) -> str:
-    """Analyze DNS resolution issues and query patterns. Supports s3:// URIs."""
-    local = _resolve_s3_path(pcap_file)
-    r = await _pcap._analyze_dns_resolution_issues(local)
-    return r[0].text
-
-
-@mcp.tool()
-async def analyze_network_performance(pcap_file: str) -> str:
-    """Analyze network performance metrics from pcap file. Supports s3:// URIs."""
-    local = _resolve_s3_path(pcap_file)
-    r = await _pcap._analyze_network_performance(local)
-    return r[0].text
-
-
-@mcp.tool()
-async def analyze_network_latency(pcap_file: str) -> str:
-    """Analyze network latency and response times. Supports s3:// URIs."""
-    local = _resolve_s3_path(pcap_file)
-    r = await _pcap._analyze_network_latency(local)
-    return r[0].text
-
-
-@mcp.tool()
-async def analyze_expert_information(pcap_file: str, severity_filter: str = "") -> str:
-    """Analyze Wireshark expert information for network issues. Supports s3:// URIs."""
-    local = _resolve_s3_path(pcap_file)
-    r = await _pcap._analyze_expert_information(local, severity_filter or None)
-    return r[0].text
-
-
-@mcp.tool()
-async def analyze_protocol_anomalies(pcap_file: str) -> str:
-    """Analyze protocol anomalies and malformed packets. Supports s3:// URIs."""
-    local = _resolve_s3_path(pcap_file)
-    r = await _pcap._analyze_protocol_anomalies(local)
-    return r[0].text
-
-
-@mcp.tool()
-async def analyze_network_topology(pcap_file: str) -> str:
-    """Analyze network topology and routing information. Supports s3:// URIs."""
-    local = _resolve_s3_path(pcap_file)
-    r = await _pcap._analyze_network_topology(local)
-    return r[0].text
-
-
-@mcp.tool()
-async def analyze_security_threats(pcap_file: str) -> str:
-    """Analyze potential security threats and suspicious activities. Supports s3:// URIs."""
-    local = _resolve_s3_path(pcap_file)
-    r = await _pcap._analyze_security_threats(local)
-    return r[0].text
-
-
-@mcp.tool()
-async def list_captured_files() -> str:
-    """List all captured pcap files in the local storage directory."""
-    r = await _pcap._list_captured_files()
-    return r[0].text
-
-
-@mcp.tool()
-async def list_network_interfaces() -> str:
-    """List available network interfaces for packet capture."""
-    r = await _pcap._list_network_interfaces()
-    return r[0].text
-
-
-@mcp.tool()
-async def extract_http_requests(pcap_file: str, limit: int = 100) -> str:
-    """Extract HTTP requests from pcap file. Supports s3:// URIs."""
-    local = _resolve_s3_path(pcap_file)
-    r = await _pcap._extract_http_requests(local, limit)
-    return r[0].text
-
-
-@mcp.tool()
-async def generate_traffic_timeline(pcap_file: str, time_interval: int = 60) -> str:
-    """Generate traffic timeline with specified time intervals. Supports s3:// URIs."""
-    local = _resolve_s3_path(pcap_file)
-    r = await _pcap._generate_traffic_timeline(local, time_interval)
-    return r[0].text
-
-
-@mcp.tool()
-async def search_packet_content(pcap_file: str, search_pattern: str, case_sensitive: bool = False, limit: int = 50) -> str:
-    """Search for specific patterns in packet content. Supports s3:// URIs."""
-    local = _resolve_s3_path(pcap_file)
-    r = await _pcap._search_packet_content(local, search_pattern, case_sensitive, limit)
-    return r[0].text
-
-
-@mcp.tool()
-async def generate_throughput_io_graph(pcap_file: str, time_interval: int = 1) -> str:
-    """Generate throughput I/O graph data with specified time intervals. Supports s3:// URIs."""
-    local = _resolve_s3_path(pcap_file)
-    r = await _pcap._generate_throughput_io_graph(local, time_interval)
-    return r[0].text
-
-
-@mcp.tool()
-async def analyze_bandwidth_utilization(pcap_file: str, time_window: int = 10) -> str:
-    """Analyze bandwidth utilization and traffic patterns. Supports s3:// URIs."""
-    local = _resolve_s3_path(pcap_file)
-    r = await _pcap._analyze_bandwidth_utilization(local, time_window)
-    return r[0].text
-
-
-@mcp.tool()
-async def analyze_application_response_times(pcap_file: str, protocol: str = "http") -> str:
-    """Analyze application layer response times and performance. Supports s3:// URIs."""
-    local = _resolve_s3_path(pcap_file)
-    r = await _pcap._analyze_application_response_times(local, protocol)
-    return r[0].text
-
-
-@mcp.tool()
-async def analyze_network_quality_metrics(pcap_file: str) -> str:
-    """Analyze network quality metrics including jitter and packet loss. Supports s3:// URIs."""
-    local = _resolve_s3_path(pcap_file)
-    r = await _pcap._analyze_network_quality_metrics(local)
-    return r[0].text
+_prune_tools(mcp)
 
 
 if __name__ == "__main__":
-    logger.info("Starting PCAP Analyzer MCP Server on 0.0.0.0:8000/mcp")
+    logger.info("Starting Wireshark MCP Server (streamable-http) on 0.0.0.0:8000/mcp")
     mcp.run(transport="streamable-http")

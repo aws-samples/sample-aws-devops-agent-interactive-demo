@@ -10,7 +10,9 @@ phases:
       - echo "=== Phase Build - Create Dockerfile, Build, Push ==="
       - mkdir -p /tmp/build && cd /tmp/build
 
-      # Create Dockerfile inline (matching working CFN pattern)
+      # Create Dockerfile inline.
+      # Builds the open-source Wireshark MCP (bx33661/Wireshark-MCP) pinned to a
+      # known-good PyPI release, then runs our S3-aware streamable-http wrapper.
       - |
         cat > Dockerfile << 'EOF'
         FROM public.ecr.aws/docker/library/python:3.13-slim
@@ -22,19 +24,19 @@ phases:
 
         WORKDIR /app
 
-        RUN git clone https://github.com/aws-samples/sample-pcap-analyzer-mcp.git /tmp/pcap-repo && \
-            pip install --no-cache-dir /tmp/pcap-repo boto3 && \
-            rm -rf /tmp/pcap-repo
-
-        # Install FastMCP for streamable-http transport
-        RUN pip install --no-cache-dir fastmcp
+        # Install Wireshark MCP (pinned PyPI release) as a library + boto3 for S3.
+        # Pinned to a published wheel for reproducible, build-free installs.
+        ARG WIRESHARK_MCP_VERSION=1.1.5
+        RUN pip install --no-cache-dir \
+              "wireshark-mcp==${WIRESHARK_MCP_VERSION}" \
+              boto3
 
         COPY server.py /app/server.py
 
         RUN mkdir -p /tmp/pcap_storage
 
         ENV PCAP_STORAGE_DIR=/tmp/pcap_storage
-        ENV WIRESHARK_PATH=/usr/bin/tshark
+        ENV WIRESHARK_MCP_ALLOWED_DIRS=/tmp/pcap_storage
         ENV PYTHONUNBUFFERED=1
 
         EXPOSE 8000
@@ -56,24 +58,45 @@ phases:
 
       - echo "=== Create or Update AgentCore Runtime ==="
       - |
-        RUNTIME_NAME="pcapMcp$(date +%s)"
         DISCOVERY_URL="https://cognito-idp.$AWS_DEFAULT_REGION.amazonaws.com/$COGNITO_USER_POOL_ID/.well-known/openid-configuration"
-        echo "Runtime name: $RUNTIME_NAME"
+        ARTIFACT="{\"containerConfiguration\":{\"containerUri\":\"$ECR_REPO_URI:latest\"}}"
+        AUTHZ="{\"customJWTAuthorizer\":{\"discoveryUrl\":\"$DISCOVERY_URL\",\"allowedClients\":[\"$COGNITO_CLIENT_ID\"]}}"
 
-        echo "Creating runtime..."
-        CREATE_RESULT=$(aws bedrock-agentcore-control create-agent-runtime \
-          --agent-runtime-name "$RUNTIME_NAME" \
-          --description "PCAP Analyzer MCP Server" \
-          --role-arn $ROLE_ARN \
-          --network-configuration '{"networkMode":"PUBLIC"}' \
-          --protocol-configuration '{"serverProtocol":"MCP"}' \
-          --authorizer-configuration "{\"customJWTAuthorizer\":{\"discoveryUrl\":\"$DISCOVERY_URL\",\"allowedClients\":[\"$COGNITO_CLIENT_ID\"]}}" \
-          --agent-runtime-artifact "{\"containerConfiguration\":{\"containerUri\":\"$ECR_REPO_URI:latest\"}}" \
-          --region $AWS_DEFAULT_REGION 2>&1)
-        echo "Create result: $CREATE_RESULT"
+        # If a runtime already exists (from a previous deploy), UPDATE it in place
+        # so the runtime ARN / MCP endpoint stays the same and no re-registration
+        # in Agent Space is needed. Otherwise CREATE a fresh runtime.
+        EXISTING_ID=$(aws ssm get-parameter --name "/pcap-mcp/runtime-id" --query Parameter.Value --output text --region $AWS_DEFAULT_REGION 2>/dev/null || echo "")
 
-        RUNTIME_ID=$(echo "$CREATE_RESULT" | python3 -c "import sys,json; print(json.load(sys.stdin).get('agentRuntimeId','FAILED'))" 2>/dev/null || echo "FAILED")
-        RUNTIME_ARN=$(echo "$CREATE_RESULT" | python3 -c "import sys,json; print(json.load(sys.stdin).get('agentRuntimeArn','FAILED'))" 2>/dev/null || echo "FAILED")
+        if [ -n "$EXISTING_ID" ] && [ "$EXISTING_ID" != "FAILED" ] && [ "$EXISTING_ID" != "None" ]; then
+          echo "Updating existing runtime in place: $EXISTING_ID"
+          UPDATE_RESULT=$(aws bedrock-agentcore-control update-agent-runtime \
+            --agent-runtime-id "$EXISTING_ID" \
+            --role-arn $ROLE_ARN \
+            --network-configuration '{"networkMode":"PUBLIC"}' \
+            --protocol-configuration '{"serverProtocol":"MCP"}' \
+            --authorizer-configuration "$AUTHZ" \
+            --agent-runtime-artifact "$ARTIFACT" \
+            --region $AWS_DEFAULT_REGION 2>&1)
+          echo "Update result: $UPDATE_RESULT"
+          RUNTIME_ID="$EXISTING_ID"
+          RUNTIME_ARN=$(aws ssm get-parameter --name "/pcap-mcp/runtime-arn" --query Parameter.Value --output text --region $AWS_DEFAULT_REGION 2>/dev/null || echo "FAILED")
+        else
+          RUNTIME_NAME="wiresharkMcp$(date +%s)"
+          echo "Creating runtime: $RUNTIME_NAME"
+          CREATE_RESULT=$(aws bedrock-agentcore-control create-agent-runtime \
+            --agent-runtime-name "$RUNTIME_NAME" \
+            --description "Wireshark MCP Server (packet capture analysis)" \
+            --role-arn $ROLE_ARN \
+            --network-configuration '{"networkMode":"PUBLIC"}' \
+            --protocol-configuration '{"serverProtocol":"MCP"}' \
+            --authorizer-configuration "$AUTHZ" \
+            --agent-runtime-artifact "$ARTIFACT" \
+            --region $AWS_DEFAULT_REGION 2>&1)
+          echo "Create result: $CREATE_RESULT"
+          RUNTIME_ID=$(echo "$CREATE_RESULT" | python3 -c "import sys,json; print(json.load(sys.stdin).get('agentRuntimeId','FAILED'))" 2>/dev/null || echo "FAILED")
+          RUNTIME_ARN=$(echo "$CREATE_RESULT" | python3 -c "import sys,json; print(json.load(sys.stdin).get('agentRuntimeArn','FAILED'))" 2>/dev/null || echo "FAILED")
+        fi
+
         echo "Runtime ID: $RUNTIME_ID"
         echo "Runtime ARN: $RUNTIME_ARN"
 
