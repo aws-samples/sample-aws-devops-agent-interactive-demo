@@ -147,8 +147,15 @@ export class DashboardStack extends cdk.Stack {
     const healthLambdaRole = this.createLambdaRole('HealthLambdaRole', 'Dashboard Health Lambda');
     healthLambdaRole.addToPolicy(new iam.PolicyStatement({
       effect: iam.Effect.ALLOW,
-      actions: ['dynamodb:GetItem'],
+      actions: ['dynamodb:GetItem', 'dynamodb:PutItem', 'dynamodb:DeleteItem'],
       resources: [eventsTable.tableArn],
+    }));
+    // Read live CloudWatch alarm states (alarm-1..6) — DescribeAlarms has no
+    // resource-level scoping, so it must be granted on '*'.
+    healthLambdaRole.addToPolicy(new iam.PolicyStatement({
+      effect: iam.Effect.ALLOW,
+      actions: ['cloudwatch:DescribeAlarms'],
+      resources: ['*'],
     }));
 
     const healthLambda = new lambda.NodejsFunction(this, 'HealthHandler', {
@@ -551,7 +558,7 @@ export class DashboardStack extends cdk.Stack {
 
     // ── cdk-nag suppressions ───────────────────────────────────────────
     NagSuppressions.addStackSuppressions(this, [
-      { id: 'AwsSolutions-IAM5', reason: 'Wildcard resources required for EC2 break/fix operations (security groups, routes, VPC endpoints), SSM SendCommand, CloudWatch Logs write, and aidevops:GetInvestigationSummary.' },
+      { id: 'AwsSolutions-IAM5', reason: 'Wildcard resources required for EC2 break/fix operations (security groups, routes, VPC endpoints), SSM SendCommand, CloudWatch Logs write, cloudwatch:DescribeAlarms (no resource-level support), and aidevops:GetInvestigationSummary.' },
       { id: 'AwsSolutions-IAM4', reason: 'No AWS managed policies used in this stack.' },
       { id: 'AwsSolutions-L1', reason: 'Node.js 20.x is the latest LTS runtime supported by CDK NodejsFunction.' },
       { id: 'AwsSolutions-APIG2', reason: 'API Gateway request validation not required for demo dashboard.' },

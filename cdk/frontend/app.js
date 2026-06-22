@@ -10,6 +10,8 @@ let API_BASE_URL = window.DASHBOARD_CONFIG?.apiUrl || '';
 let currentSessionId = null;
 let knownEventCount = 0;
 let activeScenarioId = null;
+let activePhase = null;          // 'breaking' | 'broken' | 'fixing' | null
+let isTransitioning = false;     // true while any scenario is breaking/fixing
 let webhookConfigured = false;
 let authToken = null;
 let authTokenExpiry = 0;
@@ -133,6 +135,9 @@ function switchTab(tabName) {
     document.getElementById('tabWelcome').classList.add('active');
     document.getElementById('tabBtnWelcome').classList.add('active');
   }
+
+  // Refresh live state immediately when switching tabs (esp. back to Scenarios)
+  pollHealth();
 }
 
 // ── Config Sub-tab Switching ───────────────────────────────────────
@@ -278,6 +283,15 @@ function initDashboard() {
   setInterval(pollHealth, 3000);
   setInterval(pollEvents, 3000);
 
+  // Browsers throttle/freeze setInterval in background tabs, so the dashboard
+  // can fall behind the real alarm state while unfocused. Re-poll immediately
+  // whenever the page becomes visible or regains focus so it catches up at once
+  // (this is what makes a manual alarm clear show up without a full refresh).
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden) { pollHealth(); pollEvents(); }
+  });
+  window.addEventListener('focus', () => { pollHealth(); pollEvents(); });
+
   // Auto-scroll terminal to bottom on resize
   window.addEventListener('resize', scrollTerminalToBottom);
 }
@@ -321,7 +335,7 @@ function setConnectionStatus(connected) {
 async function pollHealth() {
   try {
     if (!await ensureAuth()) return;
-    const res = await fetch(`${API_BASE_URL}/health`, { headers: getAuthHeaders() });
+    const res = await fetch(`${API_BASE_URL}/health`, { headers: getAuthHeaders(), cache: 'no-store' });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const d = await res.json();
     setConnectionStatus(true);
@@ -329,6 +343,7 @@ async function pollHealth() {
     // Update active scenario from server state
     const serverActiveScenario = d.activeScenario ? parseInt(d.activeScenario.scenarioId, 10) : null;
     activeScenarioId = serverActiveScenario;
+    activePhase = d.activeScenario ? (d.activeScenario.phase || null) : null;
 
     // If server says there's an active scenario and we have a session, keep it
     if (d.activeScenario && d.activeScenario.sessionId) {
@@ -341,15 +356,19 @@ async function pollHealth() {
 
     // Update each scenario card status
     const scenarios = d.scenarios || [];
+    isTransitioning = false;
     if (Array.isArray(scenarios)) {
       // Array format: [{id: 1, status: 'healthy'}, ...]
       scenarios.forEach(s => {
-        updateScenarioCard(s.id, s.status || 'healthy');
+        const st = s.status || 'healthy';
+        if (st === 'breaking' || st === 'fixing') isTransitioning = true;
+        updateScenarioCard(s.id, st);
       });
     } else {
       // Object format: {"1": "healthy", ...}
       for (let i = 1; i <= 6; i++) {
         const status = scenarios[String(i)] || 'healthy';
+        if (status === 'breaking' || status === 'fixing') isTransitioning = true;
         updateScenarioCard(i, status);
       }
     }
@@ -369,7 +388,7 @@ function updateScenarioCard(scenarioId, status) {
   if (!card || !statusEl) return;
 
   // Remove old status classes
-  card.classList.remove('status-healthy', 'status-broken', 'status-investigating');
+  card.classList.remove('status-healthy', 'status-broken', 'status-investigating', 'status-transitioning');
 
   const dot = statusEl.querySelector('.status-dot');
   const text = statusEl.querySelector('.scenario-status-text');
@@ -380,6 +399,18 @@ function updateScenarioCard(scenarioId, status) {
       statusEl.className = 'status-badge status-badge-error scenario-status';
       dot.className = 'status-dot status-dot-error';
       text.textContent = 'Broken';
+      break;
+    case 'breaking':
+      card.classList.add('status-broken', 'status-transitioning');
+      statusEl.className = 'status-badge status-badge-warning scenario-status';
+      dot.className = 'status-dot status-dot-warning';
+      text.textContent = 'Breaking…';
+      break;
+    case 'fixing':
+      card.classList.add('status-broken', 'status-transitioning');
+      statusEl.className = 'status-badge status-badge-warning scenario-status';
+      dot.className = 'status-dot status-dot-warning';
+      text.textContent = 'Fixing…';
       break;
     case 'investigating':
       card.classList.add('status-investigating');
@@ -419,6 +450,14 @@ function updateButtonStates() {
   // Webhook configured: hide banner
   if (banner) banner.style.display = 'none';
 
+  if (isTransitioning) {
+    // Mid break/fix: alarm hasn't caught up yet — gray out ALL controls until
+    // the CloudWatch alarm state settles and the UI reflects it.
+    breakBtns.forEach(btn => { btn.disabled = true; });
+    fixBtns.forEach(btn => { btn.disabled = true; });
+    return;
+  }
+
   if (activeScenarioId) {
     // Active scenario exists: disable ALL break buttons, enable only the active scenario's fix button
     breakBtns.forEach(btn => { btn.disabled = true; });
@@ -435,7 +474,7 @@ function updateButtonStates() {
 
 // ── Topology Diagram Updates ───────────────────────────────────────
 function updateTopologyPath(scenarioId, status) {
-  const isBroken = (status === 'broken' || status === 'investigating');
+  const isBroken = (status === 'broken' || status === 'investigating' || status === 'breaking' || status === 'fixing');
   const sid = String(scenarioId);
 
   // Scenario 2 has two path segments, Scenario 6 also has two segments
@@ -501,7 +540,7 @@ function updateTopologyPath(scenarioId, status) {
 function updateAlarmDot(scenarioId, status) {
   const node = document.getElementById(`alarmNode${scenarioId}`);
   if (!node) return;
-  const isBroken = (status === 'broken' || status === 'investigating');
+  const isBroken = (status === 'broken' || status === 'investigating' || status === 'breaking' || status === 'fixing');
   const box = node.querySelector('.topo-node-box');
   if (box) {
     box.style.stroke = isBroken ? '#d91515' : '';
@@ -534,7 +573,7 @@ async function pollEvents() {
   if (!currentSessionId) return;
   try {
     if (!await ensureAuth()) return;
-    const res = await fetch(`${API_BASE_URL}/events?sessionId=${currentSessionId}`, { headers: getAuthHeaders() });
+    const res = await fetch(`${API_BASE_URL}/events?sessionId=${currentSessionId}`, { headers: getAuthHeaders(), cache: 'no-store' });
     if (!res.ok) return;
     const d = await res.json();
     const evts = d.events || [];
@@ -554,6 +593,7 @@ const EVENT_MAP = {
   scenario_active:          ['t-break', '🔴', d => `Scenario ${d.scenarioId || '?'} broken`],
   scenario_fix_triggered:   ['t-fix',   '🔧', d => `Fix triggered: Scenario ${d.scenarioId || '?'} — ${SCENARIOS[d.scenarioId]?.name || ''}`],
   scenario_resolved:           ['t-fix',   '✅', d => `Scenario ${d.scenarioId || '?'} fixed`],
+  scenario_resolving:          ['t-fix',   '🔧', d => `Fix applied: Scenario ${d.scenarioId || '?'} — awaiting alarm to clear`],
   alarm_triggered:          ['t-alarm', '🚨', d => `Alarm: ${d.alarmName || ''} ${d.newStateValue || 'ALARM'}`],
   webhook_sent:             ['t-webhook','📤', d => `Webhook sent: ${d.incidentId || ''}`],
   investigation_created:    ['t-inv-created',  '🔍', d => `Investigation started: ${d.investigationId || ''}`],
@@ -642,6 +682,8 @@ async function breakScenario(scenarioId) {
     if (res.ok) {
       currentSessionId = d.sessionId;
       activeScenarioId = scenarioId;
+      activePhase = 'breaking';
+      isTransitioning = true;   // gray out everything until the alarm fires
       knownEventCount = 0;
       localStorage.setItem('dashboardSessionId', currentSessionId);
       localStorage.setItem('dashboardActiveScenario', String(scenarioId));
@@ -683,9 +725,11 @@ async function fixScenario(scenarioId) {
     const d = await res.json();
     if (res.ok) {
       log('t-fix', `🔧 Fix initiated: Scenario ${scenarioId} — ${SCENARIOS[scenarioId]?.name || ''}`);
-      // Keep session for event tracking but clear active scenario
-      activeScenarioId = null;
-      localStorage.removeItem('dashboardActiveScenario');
+      // Keep the scenario active in the 'fixing' phase — do NOT clear it here.
+      // The dashboard stays grayed/"Fixing…" until the CloudWatch alarm clears,
+      // at which point the health poll flips it to healthy.
+      activePhase = 'fixing';
+      isTransitioning = true;
       updateButtonStates();
       // Immediately poll to update UI
       pollHealth();

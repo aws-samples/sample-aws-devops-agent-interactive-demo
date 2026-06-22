@@ -20,7 +20,7 @@ export interface ImageStackProps extends cdk.StackProps {
 }
 
 /**
- * ImageStack — ECR + CodeBuild for PCAP Analyzer Docker image + AgentCore Runtime.
+ * ImageStack — ECR + CodeBuild for Wireshark MCP Docker image + AgentCore Runtime.
  *
  * Builds the Docker image, pushes to ECR, then creates the AgentCore Runtime
  * via CLI (not CloudFormation) — matching the proven working pattern.
@@ -205,7 +205,7 @@ export class ImageStack extends cdk.Stack {
       serviceToken: triggerProvider.serviceToken,
       properties: {
         ProjectName: buildProject.projectName,
-        Timestamp: 'cli-runtime-v16-unique-name',
+        Timestamp: 'cli-runtime-v18-tool-allowlist',
       },
     });
     buildTrigger.node.addDependency(scriptsDeployment);

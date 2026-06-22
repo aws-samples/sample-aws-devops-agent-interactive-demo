@@ -5,7 +5,7 @@
  * All infrastructure changes are made via the "network-ops-role".
  */
 
-import { DynamoDBClient, PutItemCommand, GetItemCommand, DeleteItemCommand } from '@aws-sdk/client-dynamodb';
+import { DynamoDBClient, PutItemCommand, GetItemCommand } from '@aws-sdk/client-dynamodb';
 import { STSClient, AssumeRoleCommand } from '@aws-sdk/client-sts';
 import {
   EC2Client,
@@ -135,17 +135,29 @@ export const handler = async (event: any) => {
       default: fixMessage = `Unknown scenario ${scenarioId}`;
     }
 
-    await ddb.send(new DeleteItemCommand({
-      TableName: TABLE_NAME,
-      Key: { sessionId: { S: 'SYSTEM' }, timestamp: { S: 'ACTIVE_SCENARIO' } },
-    }));
-
     const now = new Date().toISOString();
     const ttl = Math.floor(Date.now() / 1000) + 86400;
 
+    // Don't delete ACTIVE_SCENARIO here. Instead move it to phase 'fixing' so the
+    // dashboard stays grayed/"Fixing…" until the CloudWatch alarm actually clears.
+    // The health Lambda deletes the record (releasing the lock) once alarm = OK.
     await ddb.send(new PutItemCommand({
       TableName: TABLE_NAME,
-      Item: { sessionId: { S: activeSessionId }, timestamp: { S: now }, eventType: { S: 'scenario_resolved' }, data: { S: JSON.stringify({ scenarioId, message: fixMessage }) }, ttl: { N: String(ttl) } },
+      Item: {
+        sessionId: { S: 'SYSTEM' },
+        timestamp: { S: 'ACTIVE_SCENARIO' },
+        scenarioId: { N: String(activeScenarioId) },
+        activeSessionId: { S: activeSessionId },
+        startedAt: { S: existing.Item.startedAt?.S || now },
+        phase: { S: 'fixing' },
+        phaseStartedAt: { S: now },
+        ttl: { N: String(ttl) },
+      },
+    }));
+
+    await ddb.send(new PutItemCommand({
+      TableName: TABLE_NAME,
+      Item: { sessionId: { S: activeSessionId }, timestamp: { S: now }, eventType: { S: 'scenario_resolving' }, data: { S: JSON.stringify({ scenarioId, message: fixMessage }) }, ttl: { N: String(ttl) } },
     }));
 
     return { statusCode: 200, headers: corsHeaders, body: JSON.stringify({ sessionId: activeSessionId, scenarioId, message: `Scenario ${scenarioId} fix completed`, details: fixMessage }) };

@@ -33,7 +33,7 @@
 - [Prerequisites](#prerequisites)
 - [Quick Start](#quick-start)
 - [Dashboard Features](#dashboard-features)
-- [PCAP MCP Server](#pcap-mcp-server)
+- [Wireshark MCP Server](#wireshark-mcp-server)
 - [Project Structure](#project-structure)
 - [Cost Estimate](#cost-estimate)
 - [Clean Up](#clean-up)
@@ -81,7 +81,7 @@ The demo deploys **9 CDK stacks** into your AWS account:
 | 🚨 **AlarmStack** | 6 [CloudWatch alarms](https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/AlarmThatSendsEmail.html), [SNS topic](https://docs.aws.amazon.com/sns/latest/dg/welcome.html), webhook Lambda, [Secrets Manager](https://docs.aws.amazon.com/secretsmanager/latest/userguide/intro.html) |
 | 🔐 **AuthStack** | [Cognito User Pool](https://docs.aws.amazon.com/cognito/latest/developerguide/cognito-user-identity-pools.html), M2M client, dashboard authentication |
 | 📦 **PcapMcpStack** | PCAP storage [S3 bucket](https://docs.aws.amazon.com/AmazonS3/latest/userguide/Welcome.html), [AgentCore](https://docs.aws.amazon.com/devopsagent/latest/userguide/configuring-capabilities-for-aws-devops-agent.html) execution IAM role |
-| 🐳 **ImageStack** | [ECR](https://docs.aws.amazon.com/AmazonECR/latest/userguide/what-is-ecr.html) repo, [CodeBuild](https://docs.aws.amazon.com/codebuild/latest/userguide/welcome.html) (PCAP MCP Server container + AgentCore Runtime) |
+| 🐳 **ImageStack** | [ECR](https://docs.aws.amazon.com/AmazonECR/latest/userguide/what-is-ecr.html) repo, [CodeBuild](https://docs.aws.amazon.com/codebuild/latest/userguide/welcome.html) (Wireshark MCP Server container + AgentCore Runtime) |
 | 🤖 **DevOpsAgentStack** | [Agent Space](https://docs.aws.amazon.com/devopsagent/latest/userguide/about-aws-devops-agent.html), IAM roles, account association |
 | 📊 **DashboardStack** | S3 + [CloudFront](https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/Introduction.html) frontend, [API Gateway](https://docs.aws.amazon.com/apigateway/latest/developerguide/welcome.html), Lambda handlers, [DynamoDB](https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/Introduction.html) |
 
@@ -96,7 +96,7 @@ The demo deploys **9 CDK stacks** into your AWS account:
 | 3 | **VPC Endpoint Policy** | Deny S3 Gateway Endpoint policy | [CloudTrail](https://docs.aws.amazon.com/awscloudtrail/latest/userguide/cloudtrail-user-guide.html) |
 | 4 | **Bedrock Endpoint Subnets** | Remove Interface Endpoint subnets | [CloudTrail](https://docs.aws.amazon.com/awscloudtrail/latest/userguide/cloudtrail-user-guide.html) |
 | 5 | **ALB Backend Failure** | Stop backend application (502 Bad Gateway) | [ELB Access Logs](https://docs.aws.amazon.com/elasticloadbalancing/latest/application/load-balancer-access-logs.html) |
-| 6 | **TLS/SNI Mismatch + PCAP** | DNS poisoning of Location Service endpoint | [PCAP MCP Server](codebuild-scripts/README.md) |
+| 6 | **TLS/SNI Mismatch + PCAP** | DNS poisoning of Location Service endpoint | [Wireshark MCP Server](codebuild-scripts/README.md) |
 
 Each scenario triggers a real infrastructure change, a CloudWatch alarm fires, a webhook notifies DevOps Agent, and an automated investigation begins.
 
@@ -253,15 +253,15 @@ Go to the **Networking Scenarios** tab:
 
 ---
 
-## PCAP MCP Server
+## Wireshark MCP Server
 
-Scenario 6 uses a custom MCP server running on [Amazon Bedrock AgentCore Runtime](https://docs.aws.amazon.com/devopsagent/latest/userguide/configuring-capabilities-for-aws-devops-agent.html) for packet capture analysis. It wraps the upstream [sample-pcap-analyzer-mcp](https://github.com/aws-samples/sample-pcap-analyzer-mcp) with three enhancements:
+Scenario 6 uses a custom MCP server running on [Amazon Bedrock AgentCore Runtime](https://docs.aws.amazon.com/devopsagent/latest/userguide/configuring-capabilities-for-aws-devops-agent.html) for packet capture analysis. It runs the open-source [Wireshark MCP](https://github.com/bx33661/Wireshark-MCP) project behind a thin wrapper with three enhancements:
 
 | Enhancement | Details |
 |:------------|:--------|
 | **Transport** | FastMCP with streamable-http (AgentCore compatible) |
 | **S3 Support** | Transparently downloads `s3://` URIs before analysis |
-| **tshark Fix** | Overrides buggy upstream `summary` mode with valid tshark commands |
+| **tshark integration** | Packet dissection + protocol analysis via tshark |
 
 See [codebuild-scripts/README.md](codebuild-scripts/README.md) for the full technical deep-dive.
 
@@ -297,7 +297,7 @@ See [codebuild-scripts/README.md](codebuild-scripts/README.md) for the full tech
     │   └── icons/             AWS service SVG icons
     ├── 📁 health-check-app/   EC2 health check application (Node.js)
     ├── 📁 ec2-scripts/        Scenario 5/6 break/fix scripts (deployed via S3 asset)
-    ├── 📁 codebuild-scripts/  PCAP MCP Server Docker build
+    ├── 📁 codebuild-scripts/  Wireshark MCP Server Docker build
     ├── 📁 scripts/            Deploy, destroy, show-outputs scripts
     └── 📁 test/               CDK stack tests
 ```
