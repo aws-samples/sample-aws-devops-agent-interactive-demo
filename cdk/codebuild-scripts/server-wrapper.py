@@ -80,7 +80,7 @@ def _download_s3(s3_uri: str) -> str:
         raise ValueError(f"Invalid S3 URI: {s3_uri}. Expected s3://bucket/key")
 
     filename = os.path.basename(key) or "object"
-    path_hash = hashlib.md5(s3_uri.encode()).hexdigest()[:8]
+    path_hash = hashlib.sha256(s3_uri.encode("utf-8")).hexdigest()[:8]
     local_path = os.path.join(PCAP_STORAGE_DIR, f"{path_hash}_{filename}")
 
     if not os.path.exists(local_path):
