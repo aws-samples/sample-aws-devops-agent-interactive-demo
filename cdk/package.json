@@ -23,7 +23,7 @@
     "@aws-sdk/client-ssm": "^3.1036.0",
     "@aws-sdk/client-sts": "^3.1039.0",
     "@aws-sdk/util-dynamodb": "^3.996.2",
-    "aws-cdk-lib": "^2.256.0",
+    "aws-cdk-lib": "^2.262.0",
     "constructs": "^10.4.2",
     "esbuild": "^0.28.1"
   },
